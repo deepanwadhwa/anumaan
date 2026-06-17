@@ -1,0 +1,52 @@
+name: Anumaan
+options:
+  bundleIdPrefix: com.deepanwadhwa
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+packages:
+  AnumaanCore:
+    path: ../AnumaanCore
+
+targets:
+  Anumaan:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+    dependencies:
+      - package: AnumaanCore
+        product: AnumaanCore
+      # MapLibre as a vendored binary — no git/SPM resolution, no keychain prompts.
+      - framework: Frameworks/MapLibre.xcframework
+        embed: true
+        codeSign: true
+    info:
+      path: Generated/Info.plist
+      properties:
+        CFBundleDisplayName: Anumaan
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        NSMotionUsageDescription: >-
+          Anumaan reads device motion to detect movement, turns, and heading for
+          zero-GPS navigation.
+        NSLocationWhenInUseUsageDescription: >-
+          Anumaan uses the compass heading for navigation. GPS is recorded only as
+          ground-truth when you turn on the debug recorder.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        # Keeps the app scheduled while walking so iOS can't suspend us and kill the
+        # CoreMotion heading stream mid-walk. Location runs only to stay alive — its
+        # fixes are never used by the zero-GPS navigation/recovery algorithm.
+        UIBackgroundModes:
+          - location
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.deepanwadhwa.Anumaan
+        MARKETING_VERSION: "0.1"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.9"
+        GENERATE_INFOPLIST_FILE: NO

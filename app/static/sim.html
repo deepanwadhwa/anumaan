@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anumaan Sim</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { display:flex; height:100vh; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:#111; }
+
+#map { flex:1; }
+
+#sidebar {
+  width:340px; min-width:340px; background:#0f0f1a; color:#dde1ec;
+  display:flex; flex-direction:column; overflow-y:auto; border-left:1px solid #1e2235;
+}
+
+/* header */
+.sb-header { padding:14px 16px; background:#13131f; border-bottom:1px solid #1e2235; }
+.sb-header h1 { font-size:17px; font-weight:700; color:#e94560; letter-spacing:.3px; }
+.sb-header p  { font-size:11px; color:#5a6380; margin-top:2px; }
+
+/* steps */
+.steps { padding:12px 16px; border-bottom:1px solid #1e2235; display:flex; flex-direction:column; gap:7px; }
+.step  { display:flex; gap:10px; align-items:flex-start; opacity:.35; transition:opacity .2s; }
+.step.active { opacity:1; }
+.step.done   { opacity:.6; }
+.step-num {
+  width:22px; height:22px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:700; margin-top:1px;
+  background:#22c55e; color:#000;
+}
+.step.done .step-num { background:#334; color:#667; }
+.step-text { font-size:12px; line-height:1.4; color:#a0aabe; }
+.step.active .step-text { color:#dde1ec; }
+
+/* toolbar */
+#toolbar {
+  padding:10px 16px; border-bottom:1px solid #1e2235;
+  display:flex; gap:8px; flex-wrap:wrap;
+}
+.btn {
+  padding:6px 12px; border-radius:5px; font-size:12px; font-weight:600;
+  cursor:pointer; border:none; transition:background .15s;
+}
+.btn-undo { background:#1e2235; color:#8892a4; }
+.btn-undo:hover:not(:disabled) { background:#252840; }
+.btn-run  { background:#e94560; color:#fff; flex:1; }
+.btn-run:hover:not(:disabled) { background:#c73652; }
+.btn-reset:hover { background:#252840; }
+.btn:disabled { opacity:.35; cursor:not-allowed; }
+
+.select-mode {
+  width:100%; padding:6px 10px; background:#13131f; color:#dde1ec;
+  border:1px solid #1e2235; border-radius:5px; font-size:12px;
+  font-weight:600; cursor:pointer; outline:none; margin-bottom:4px;
+}
+.select-mode:focus { border-color:#e94560; }
+
+/* status */
+#status {
+  padding:10px 16px; font-size:12px; min-height:38px;
+  display:flex; align-items:center; gap:8px; border-bottom:1px solid #1e2235;
+  color:#8892a4;
+}
+.spinner {
+  width:14px; height:14px; border:2px solid #333; border-top-color:#e94560;
+  border-radius:50%; animation:spin .6s linear infinite; flex-shrink:0;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* results */
+#results { padding:12px 16px; flex:1; display:flex; flex-direction:column; gap:10px; }
+
+.card {
+  background:#13131f; border:1px solid #1e2235; border-radius:7px; padding:11px;
+}
+.card-title {
+  font-size:10px; font-weight:700; color:#4a5270;
+  text-transform:uppercase; letter-spacing:.6px; margin-bottom:8px;
+}
+.metric { display:flex; justify-content:space-between; align-items:center;
+          font-size:12px; padding:2px 0; }
+.metric .lbl { color:#5a6880; }
+.metric .val { font-weight:600; color:#dde1ec; font-variant-numeric:tabular-nums; }
+.val.good { color:#22c55e; }
+.val.warn { color:#f59e0b; }
+.val.bad  { color:#e94560; }
+
+/* elevation chart */
+#elev-wrap { position:relative; }
+#elev-chart { width:100%; height:72px; display:block; }
+.chart-label { font-size:9px; color:#3a4060; margin-top:2px; display:flex; justify-content:space-between; }
+
+/* heading chart */
+#hdg-wrap { position:relative; }
+#hdg-chart { width:100%; height:52px; display:block; }
+
+/* Q&A */
+.qa { display:flex; gap:7px; align-items:flex-start; font-size:11px;
+      padding:4px 0; border-bottom:1px solid #1a1d2e; }
+.qa:last-child { border:none; }
+.qa-icon { flex-shrink:0; margin-top:1px; font-size:13px; }
+.qa-text { color:#8892b4; line-height:1.4; }
+
+/* Interactive Q&A */
+.qa-active-q { font-size:13px; color:#dde1ec; line-height:1.45; margin-bottom:10px; font-weight:500; }
+.qa-btn-row { display:flex; gap:8px; }
+.btn-yes { flex:1; padding:9px; background:#16a34a; color:#fff; border:none; border-radius:6px;
+           font-size:13px; font-weight:700; cursor:pointer; transition:background .15s; }
+.btn-yes:hover { background:#15803d; }
+.btn-no  { flex:1; padding:9px; background:#dc2626; color:#fff; border:none; border-radius:6px;
+           font-size:13px; font-weight:700; cursor:pointer; transition:background .15s; }
+.btn-no:hover  { background:#b91c1c; }
+.qa-log  { margin-top:10px; border-top:1px solid #1e2235; padding-top:8px; }
+.qa-prog { font-size:10px; color:#4a5270; margin-bottom:6px; }
+
+/* legend */
+.legend-row { display:flex; align-items:center; gap:7px; font-size:11px;
+              color:#5a6880; padding:2px 0; }
+.dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+
+.error-box {
+  background:#1a0f0f; border:1px solid #7f1d1d; border-radius:6px;
+  padding:10px; font-size:12px; color:#fca5a5;
+}
+
+/* waypoint count badge */
+#wp-count {
+  padding:4px 16px; font-size:11px; color:#4a5270;
+  border-bottom:1px solid #1e2235; min-height:24px;
+}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="sidebar">
+  <div class="sb-header">
+    <h1 style="margin-bottom: 6px;">Anumaan Sim</h1>
+    <select id="select-area" onchange="onAreaChange()" style="width: 100%; padding: 4px 8px; background: #13131f; color: #dde1ec; border: 1px solid #1e2235; border-radius: 5px; font-size: 11px; font-weight: 600; cursor: pointer; outline: none;">
+      <option value="">Loading areas…</option>
+    </select>
+  </div>
+
+  <div style="padding: 12px 16px; border-bottom: 1px solid #1e2235; background: #11111a;">
+    <div style="font-size: 10px; font-weight: 700; color: #e94560; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 8px;">
+      Offline Map Area
+    </div>
+    <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+      <input type="text" id="search-input" placeholder="Search city (e.g. Seattle)..." style="flex: 1; padding: 6px 10px; background: #13131f; color: #dde1ec; border: 1px solid #1e2235; border-radius: 5px; font-size: 12px; outline: none;">
+      <button class="btn btn-undo" onclick="searchLocation()" style="padding: 6px 10px; margin: 0; line-height: 1.2;">🔍</button>
+    </div>
+    <button class="btn btn-undo" id="btn-download-view" onclick="downloadView()" style="width: 100%; padding: 7px 10px; font-size: 11px; background: #1e2235; color: #8892a4; border: 1px solid #2d3142;">📥 Download Current View</button>
+  </div>
+
+  <div class="steps" id="steps">
+    <div class="step active" id="s1">
+      <div class="step-num">1</div>
+      <div class="step-text">Click the map to draw your walk path — add as many waypoints as you like</div>
+    </div>
+    <div class="step" id="s2">
+      <div class="step-num">2</div>
+      <div class="step-text">Hit <strong>Run Sim</strong> — more turns = better localisation</div>
+    </div>
+  </div>
+
+  <div style="padding: 0 16px 8px 16px;">
+    <select id="select-mode" class="select-mode">
+      <option value="road">Paved Roads</option>
+      <option value="offtrail">Off-Trail</option>
+    </select>
+  </div>
+
+  <div id="toolbar">
+    <button class="btn btn-undo" id="btn-undo" onclick="undoWaypoint()" disabled>↩ Undo</button>
+    <button class="btn btn-run"  id="btn-run"  onclick="runSim()" disabled>Run Sim</button>
+    <button class="btn btn-reset" onclick="reset()">Reset</button>
+  </div>
+
+  <div id="wp-count"></div>
+  <div id="status"></div>
+  <div id="results"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ---- map ----
+const map = L.map('map');
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution:'© OpenStreetMap', maxZoom:19
+}).addTo(map);
+
+let areaInfo = null;
+let waypoints = [];        // [{lat,lng}, ...]
+let wpMarkers  = [];
+let pathLine   = null;
+let routeLine  = null, hypoLayer = null, locMarker = null, preQMarker = null;
+let simRunning = false;
+
+// ---- interactive Q&A state ----
+let qaCloud     = [];   // [{lat, lon, w, qa:[bool,...]}, ...]
+let qaQuestions = [];   // [{text, named}, ...]
+let qaAsked     = new Set();
+let qaLog       = [];   // [{text, answer}, ...]
+
+// ---- search location ----
+function searchLocation() {
+  const q = document.getElementById('search-input').value.trim();
+  if (!q) return;
+  setStatus('Searching location...');
+  fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`)
+    .then(r => r.json())
+    .then(data => {
+      setStatus('');
+      if (data && data.length > 0) {
+        const item = data[0];
+        map.setView([parseFloat(item.lat), parseFloat(item.lon)], 14);
+      } else {
+        alert("Location not found");
+      }
+    })
+    .catch(err => {
+      setStatus('');
+      alert("Search error: " + err.message);
+    });
+}
+
+// ---- boundary overlay manager ----
+let boundsOverlay = null;
+function updateBoundsOverlay(area) {
+  if (boundsOverlay) { map.removeLayer(boundsOverlay); boundsOverlay = null; }
+  const bounds = [[area.south, area.west], [area.north, area.east]];
+  boundsOverlay = L.rectangle(bounds, {
+    color: '#e94560',
+    weight: 2,
+    fillOpacity: 0.05,
+    dashArray: '6 4',
+    interactive: false
+  }).addTo(map);
+}
+
+// ---- download view ----
+function downloadView() {
+  if (simRunning) return;
+  const bounds = map.getBounds();
+  const south = bounds.getSouth();
+  const west = bounds.getWest();
+  const north = bounds.getNorth();
+  const east = bounds.getEast();
+  
+  const name = prompt("Enter a name for this downloaded area:", "Custom Area");
+  if (!name) return;
+  
+  setStatus('Downloading OSM roads and DEM tiles for current view...', true);
+  document.getElementById('btn-download-view').disabled = true;
+  
+  fetch('/api/sim/download', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ south, west, north, east, name })
+  })
+  .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+  .then(({ ok, data }) => {
+    setStatus('');
+    document.getElementById('btn-download-view').disabled = false;
+    if (!ok) {
+      alert("Download failed: " + (data.detail || "unknown error"));
+      return;
+    }
+    
+    areaInfo = data.area;
+    areaInfo.name = data.name;
+    areaInfo.id = data.area_id;
+    
+    loadAreas(areaInfo.id);
+    
+    alert(`Successfully downloaded and cached maps for "${data.name}"!`);
+  })
+  .catch(err => {
+    setStatus('');
+    document.getElementById('btn-download-view').disabled = false;
+    alert("Error downloading view: " + err.message);
+  });
+}
+
+// ---- load areas ----
+function loadAreas(selectId) {
+  fetch('/api/sim/areas')
+    .then(r => r.json())
+    .then(data => {
+      const select = document.getElementById('select-area');
+      select.innerHTML = '';
+      
+      let defaultId = localStorage.getItem('selectedSimArea') || 'clemson';
+      let selectedId = selectId || defaultId;
+      if (!data.areas[selectedId]) {
+        selectedId = 'clemson';
+      }
+      
+      Object.keys(data.areas).forEach(id => {
+        const a = data.areas[id];
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = a.name || id;
+        if (id === selectedId) opt.selected = true;
+        select.appendChild(opt);
+      });
+      
+      const activeId = select.value;
+      if (activeId && data.areas[activeId]) {
+        areaInfo = data.areas[activeId];
+        areaInfo.id = activeId;
+        areaInfo.name = areaInfo.name || activeId;
+        localStorage.setItem('selectedSimArea', activeId);
+        map.setView(areaInfo.center, areaInfo.zoom);
+        updateBoundsOverlay(areaInfo);
+      }
+      setStatus('');
+    });
+}
+
+function onAreaChange() {
+  if (simRunning) return;
+  const select = document.getElementById('select-area');
+  const activeId = select.value;
+  localStorage.setItem('selectedSimArea', activeId);
+  fetch('/api/sim/areas')
+    .then(r => r.json())
+    .then(data => {
+      if (data.areas[activeId]) {
+        areaInfo = data.areas[activeId];
+        areaInfo.id = activeId;
+        areaInfo.name = areaInfo.name || activeId;
+        updateBoundsOverlay(areaInfo);
+        reset();
+      }
+    });
+}
+
+// Initial load of areas
+loadAreas();
+
+
+// ---- map click ----
+map.on('click', function(e){
+  if (simRunning) return;
+  addWaypoint(e.latlng);
+});
+
+// ---- waypoint management ----
+function wpIcon(n) {
+  return L.divIcon({ className:'', iconSize:[22,22], iconAnchor:[11,11],
+    html:`<div style="background:#22c55e;color:#000;font-size:10px;font-weight:700;
+      width:22px;height:22px;border-radius:50%;display:flex;align-items:center;
+      justify-content:center;border:2px solid rgba(255,255,255,.7);
+      box-shadow:0 1px 4px rgba(0,0,0,.5)">${n}</div>` });
+}
+const iconLoc = L.divIcon({ className:'', iconSize:[30,30], iconAnchor:[15,15],
+  html:`<div style="background:#e94560;color:#fff;font-size:14px;font-weight:700;
+    width:30px;height:30px;border-radius:50%;display:flex;align-items:center;
+    justify-content:center;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5)">?</div>` });
+
+function addWaypoint(latlng) {
+  waypoints.push(latlng);
+  const m = L.marker(latlng, {icon: wpIcon(waypoints.length)}).addTo(map);
+  wpMarkers.push(m);
+  updatePathLine();
+  updateUI();
+}
+
+function undoWaypoint() {
+  if (!waypoints.length) return;
+  waypoints.pop();
+  map.removeLayer(wpMarkers.pop());
+  updatePathLine();
+  updateUI();
+}
+
+function updatePathLine() {
+  if (pathLine) { map.removeLayer(pathLine); pathLine = null; }
+  if (waypoints.length >= 2) {
+    pathLine = L.polyline(waypoints, {color:'#22c55e', weight:2.5, dashArray:'6 4', opacity:.8}).addTo(map);
+  }
+}
+
+function updateUI() {
+  const n = waypoints.length;
+  document.getElementById('btn-undo').disabled = n === 0;
+  document.getElementById('btn-run').disabled  = n < 2;
+  document.getElementById('wp-count').textContent =
+    n === 0 ? '' : `${n} waypoint${n>1?'s':''} — click to add more`;
+  const s1 = document.getElementById('s1'), s2 = document.getElementById('s2');
+  if (n === 0) { s1.className='step active'; s2.className='step'; }
+  else         { s1.className='step done';   s2.className='step active'; }
+}
+
+// ---- run sim ----
+function runSim() {
+  if (waypoints.length < 2 || simRunning) return;
+  simRunning = true;
+  clearOverlays();
+  setStatus('Synthesising walk and running recovery engine…', true);
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('btn-run').disabled = true;
+  document.getElementById('btn-undo').disabled = true;
+
+  const mode = document.getElementById('select-mode').value;
+  const path = waypoints.map(p => [p.lat, p.lng]);
+  fetch('/api/simulate', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ area: areaInfo.id, path, mode }),
+  })
+  .then(r => r.json().then(d => ({ ok:r.ok, data:d })))
+  .then(({ ok, data }) => {
+    simRunning = false;
+    setStatus('');
+    document.getElementById('btn-run').disabled = false;
+    if (!ok) { showError(data); return; }
+    renderResults(data);
+  })
+  .catch(err => {
+    simRunning = false;
+    setStatus('');
+    document.getElementById('btn-run').disabled = false;
+    showError('Network error: ' + err.message);
+
+  });
+}
+
+// ---- render results ----
+function renderResults(d) {
+  // Hide drawn path, show route line
+  if (pathLine) { map.removeLayer(pathLine); pathLine = null; }
+  if (d.route && d.route.length > 1) {
+    routeLine = L.polyline(d.route.map(p=>[p[0],p[1]]), {color:'#3b82f6', weight:4, opacity:.85}).addTo(map);
+    map.fitBounds(routeLine.getBounds(), {padding:[30,30]});
+  }
+
+  // Pre-question best estimate (yellow circle)
+  if (d.preQuestionBest) {
+    preQMarker = L.circleMarker([d.preQuestionBest[0],d.preQuestionBest[1]], {
+      radius:10, color:'#facc15', fillColor:'#facc15', fillOpacity:.5, weight:2
+    }).bindPopup(`<b>Matching result (before Q&A)</b><br>Error: ${Math.round(d.preQuestionErrorM)} m`).addTo(map);
+  }
+
+  const turnMsg = turnQuality(d.significantTurns);
+  const elevSVG = d.elevProfile && d.elevProfile.length > 1
+    ? buildElevChart(d.elevProfile, d.noisyElev, d.walkDistanceM) : '';
+  const hdgSVG = d.headings && d.headings.length > 1 ? buildHdgChart(d.headings) : '';
+
+  document.getElementById('results').innerHTML = `
+    <div class="card" id="card-loc">
+      <div class="card-title">📍 Location</div>
+      <div class="metric"><span class="lbl">Walk distance</span><span class="val">~${d.walkDistanceM} m (${d.walkSteps} steps)</span></div>
+      ${d.preQuestionBest != null
+        ? `<div class="metric"><span class="lbl">Matching error (pre-Q&A) ●</span>
+           <span class="val ${d.preQuestionErrorM < 150 ? 'good' : d.preQuestionErrorM < 400 ? 'warn' : 'bad'}">${Math.round(d.preQuestionErrorM)} m</span></div>`
+        : ''}
+      <div id="loc-result" style="margin-top:4px;font-size:11px;color:#5a6880">Answer the questions below to locate you.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📐 Walk shape</div>
+      <div class="metric"><span class="lbl">Significant turns (>30°)</span>
+        <span class="val ${d.significantTurns>=3?'good':d.significantTurns>=1?'warn':'bad'}">${d.significantTurns} ${turnMsg}</span></div>
+      <div class="metric"><span class="lbl">Total heading change</span><span class="val">${Math.round(d.totalHeadingChangeDeg)}°</span></div>
+      <div class="metric"><span class="lbl">Heading spread (σ)</span><span class="val">${(+d.headingStdDev).toFixed(1)}°</span></div>
+      ${hdgSVG ? `<div id="hdg-wrap" style="margin-top:6px">
+        <div style="font-size:9px;color:#4a5270;margin-bottom:2px">Compass heading along walk</div>
+        ${hdgSVG}</div>` : ''}
+    </div>
+
+    <div class="card">
+      <div class="card-title">⛰ Elevation profile</div>
+      ${elevSVG
+        ? `<div id="elev-wrap">${elevSVG}</div>
+           <div class="chart-label"><span>0 m</span><span>${d.walkDistanceM} m</span></div>`
+        : `<div style="font-size:11px;color:#4a5270">No elevation data</div>`}
+    </div>
+
+    <div class="card" id="card-qa">
+      <div class="card-title">💬 Answer to locate</div>
+      <div id="qa-body"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🗺 Legend</div>
+      <div class="legend-row"><div class="dot" style="background:#22c55e"></div> Numbered markers — your drawn path</div>
+      <div class="legend-row"><div class="dot" style="background:#3b82f6"></div> Blue line — true walk (snapped to roads)</div>
+      <div class="legend-row"><div class="dot" style="background:#facc15"></div> Yellow ● — matching result before Q&A</div>
+      <div class="legend-row"><div class="dot" style="background:#e94560"></div> ? — located position (after Q&A)</div>
+      <div class="legend-row"><div class="dot" style="background:#f97316"></div> Orange dots — hypothesis cloud</div>
+    </div>
+  `;
+
+  // Initialise interactive Q&A
+  qaCloud     = (d.hypotheses || [])
+    .map((h, i) => ({
+      lat: h[0], lon: h[1], w: typeof h[2] === 'number' ? h[2] : 1.0,
+      qa: (d.questionAnswers && d.questionAnswers[i]) ? d.questionAnswers[i] : []
+    }))
+    .filter(h => h.w > 1e-8);
+  qaQuestions = d.questions || [];
+  qaAsked     = new Set();
+  qaLog       = [];
+
+  renderHypoLayer();
+  renderQA();
+}
+
+// ---- interactive Q&A ----
+function distM(lat1, lon1, lat2, lon2) {
+  const dLat = (lat2 - lat1) * 111320;
+  const dLon = (lon2 - lon1) * 111320 * Math.cos(lat1 * Math.PI / 180);
+  return Math.sqrt(dLat*dLat + dLon*dLon);
+}
+
+function qaLead() {
+  // Find the densest cluster: weighted centroid of hypotheses within 120m of the max-weight point
+  if (qaCloud.length === 0) return null;
+  let maxW = 0;
+  qaCloud.forEach(h => { if (h.w > maxW) maxW = h.w; });
+  const thr = maxW * 0.05;
+  const core = qaCloud.filter(h => h.w >= thr);
+  if (core.length === 0) return null;
+  let sw = 0, slat = 0, slon = 0;
+  core.forEach(h => { sw += h.w; slat += h.lat * h.w; slon += h.lon * h.w; });
+  return sw > 0 ? {lat: slat/sw, lon: slon/sw} : null;
+}
+
+function qaConcentration() {
+  const lead = qaLead();
+  if (!lead || qaCloud.length === 0) return 0;
+  let total = 0, inside = 0;
+  qaCloud.forEach(h => {
+    total += h.w;
+    if (distM(lead.lat, lead.lon, h.lat, h.lon) <= 120) inside += h.w;
+  });
+  return total > 0 ? inside / total : 0;
+}
+
+function qaBestQuestion() {
+  const total = qaCloud.reduce((s,h) => s + h.w, 0);
+  if (total === 0) return null;
+  let bestIdx = -1, bestScore = Infinity;
+  for (let i = 0; i < qaQuestions.length; i++) {
+    if (qaAsked.has(i)) continue;
+    let yesW = 0;
+    qaCloud.forEach(h => { if (h.qa[i]) yesW += h.w; });
+    const ratio = yesW / total;
+    if (ratio < 0.02 || ratio > 0.98) continue; // question doesn't split — skip
+    const balance = Math.abs(ratio - 0.5);
+    // Prefer named road questions (they're most discriminating)
+    const score = balance - (qaQuestions[i].named ? 0.08 : 0);
+    if (score < bestScore) { bestScore = score; bestIdx = i; }
+  }
+  return bestIdx >= 0 ? bestIdx : null;
+}
+
+function applyQAAnswer(qIdx, answer) {
+  const isNamed = qaQuestions[qIdx].named;
+  const soft = isNamed ? 0.02 : 0.2;
+  qaCloud.forEach(h => {
+    if ((h.qa[qIdx] === true) !== answer) h.w *= soft;
+  });
+  qaCloud = qaCloud.filter(h => h.w > 1e-8);
+  qaAsked.add(qIdx);
+  qaLog.push({text: qaQuestions[qIdx].text, answer});
+
+  renderHypoLayer();
+
+  const conc = qaConcentration();
+  if (conc >= 0.80 || qaAsked.size >= 12) {
+    showLocated(conc);
+  } else {
+    renderQA();
+  }
+}
+
+function showLocated(conc) {
+  const lead = qaLead();
+  if (locMarker) { map.removeLayer(locMarker); locMarker = null; }
+  if (lead) {
+    locMarker = L.marker([lead.lat, lead.lon], {icon: iconLoc})
+      .bindPopup(`Engine thinks you're here<br>Confidence: ${Math.round(conc*100)}%`)
+      .addTo(map);
+  }
+
+  // Update location card
+  const el = document.getElementById('loc-result');
+  if (el) {
+    el.innerHTML = `<span style="color:#22c55e;font-weight:700">LOCATED</span>
+      &nbsp;—&nbsp;${Math.round(conc*100)}% cloud confidence`;
+  }
+
+  // Show Q&A log in the card
+  const logHTML = qaLog.map(q =>
+    `<div class="qa"><span class="qa-icon">${q.answer?'✅':'❌'}</span>
+     <span class="qa-text">${q.text}</span></div>`
+  ).join('');
+  const qb = document.getElementById('qa-body');
+  if (qb) qb.innerHTML = `<div style="font-size:11px;color:#22c55e;margin-bottom:8px">Located after ${qaLog.length} question${qaLog.length===1?'':'s'}.</div>` + logHTML;
+}
+
+function renderQA() {
+  const qIdx = qaBestQuestion();
+  const qb = document.getElementById('qa-body');
+  if (!qb) return;
+
+  const logHTML = qaLog.length > 0
+    ? `<div class="qa-log"><div class="qa-prog">Already answered (${qaLog.length}):</div>` +
+      qaLog.map(q => `<div class="qa"><span class="qa-icon">${q.answer?'✅':'❌'}</span>
+        <span class="qa-text">${q.text}</span></div>`).join('') + `</div>`
+    : '';
+
+  if (qIdx === null) {
+    const lead = qaLead();
+    if (lead) {
+      showLocated(qaConcentration());
+    } else {
+      qb.innerHTML = `<div style="font-size:11px;color:#f59e0b">Cloud too sparse — try a longer or curvier walk.</div>` + logHTML;
+    }
+    return;
+  }
+
+  qb.innerHTML = `
+    <div class="qa-active-q">${qaQuestions[qIdx].text}</div>
+    <div class="qa-btn-row">
+      <button class="btn-yes" onclick="applyQAAnswer(${qIdx}, true)">YES</button>
+      <button class="btn-no"  onclick="applyQAAnswer(${qIdx}, false)">NO</button>
+    </div>
+    ${logHTML}
+  `;
+}
+
+function renderHypoLayer() {
+  if (hypoLayer) { map.removeLayer(hypoLayer); hypoLayer = null; }
+  if (qaCloud.length > 0) {
+    hypoLayer = L.layerGroup();
+    qaCloud.forEach(h => L.circleMarker([h.lat, h.lon], {
+      radius:4, color:'#f97316', fillColor:'#f97316', fillOpacity:.45, weight:0
+    }).addTo(hypoLayer));
+    hypoLayer.addTo(map);
+  }
+}
+
+// ---- mini charts ----
+function buildElevChart(trueElev, noisyElev, distM) {
+  const W = 300, H = 68, PAD = 4;
+  const n = trueElev.length;
+  if (n < 2) return '';
+  const allVals = [...trueElev, ...noisyElev];
+  const minV = Math.min(...allVals), maxV = Math.max(...allVals);
+  const rng = maxV - minV || 1;
+  function xOf(i) { return PAD + (i / (n-1)) * (W - 2*PAD); }
+  function yOf(v) { return PAD + (1 - (v - minV) / rng) * (H - 2*PAD); }
+  const trueD  = trueElev.map( (v,i) => `${i?'L':'M'}${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ');
+  const noisyD = noisyElev.map((v,i) => `${i?'L':'M'}${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ');
+  // Y axis tick
+  const midV = ((minV + maxV)/2).toFixed(1);
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px">
+    <line x1="${PAD}" y1="${PAD}" x2="${PAD}" y2="${H-PAD}" stroke="#1e2235" stroke-width="1"/>
+    <line x1="${PAD}" y1="${H-PAD}" x2="${W-PAD}" y2="${H-PAD}" stroke="#1e2235" stroke-width="1"/>
+    <text x="${PAD+2}" y="${H/2+3}" fill="#3a4060" font-size="8">${midV}m</text>
+    <path d="${noisyD}" fill="none" stroke="#f97316" stroke-width="1" opacity=".5" stroke-dasharray="3 2"/>
+    <path d="${trueD}"  fill="none" stroke="#3b82f6" stroke-width="1.5"/>
+  </svg>
+  <div style="display:flex;gap:12px;font-size:9px;color:#3a4060;margin-top:2px">
+    <span>— True elevation</span><span style="color:#f97316">- - Baro sensor (noisy)</span>
+  </div>`;
+}
+
+function buildHdgChart(headings) {
+  const W = 300, H = 48, PAD = 4;
+  const n = headings.length;
+  if (n < 2) return '';
+  function xOf(i) { return PAD + (i / (n-1)) * (W - 2*PAD); }
+  function yOf(v) { return PAD + (1 - v / 360) * (H - 2*PAD); }
+  const d = headings.map((v,i) => `${i?'L':'M'}${xOf(i).toFixed(1)},${yOf(((v%360)+360)%360).toFixed(1)}`).join(' ');
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px">
+    <line x1="${PAD}" y1="${PAD}" x2="${PAD}" y2="${H-PAD}" stroke="#1e2235" stroke-width="1"/>
+    <line x1="${PAD}" y1="${H/2}" x2="${W-PAD}" y2="${H/2}" stroke="#1e2235" stroke-width="1" stroke-dasharray="3 3"/>
+    <text x="${PAD+2}" y="${H/2-2}" fill="#3a4060" font-size="8">180°</text>
+    <path d="${d}" fill="none" stroke="#a78bfa" stroke-width="1.5"/>
+  </svg>`;
+}
+
+function turnQuality(n) {
+  if (n === 0) return '— straight walk, hard to localise';
+  if (n === 1) return '— helps a little';
+  if (n === 2) return '— decent';
+  return '— good shape for localisation';
+}
+
+// ---- utils ----
+function showError(data) {
+  let msg;
+  if (typeof data === 'string') {
+    msg = data;
+  } else if (data && data.detail) {
+    msg = Array.isArray(data.detail)
+      ? data.detail.map(e => (e.loc ? e.loc.join('.') + ': ' : '') + e.msg).join('<br>')
+      : String(data.detail);
+  } else {
+    msg = JSON.stringify(data);
+  }
+  document.getElementById('results').innerHTML = `<div class="error-box">⚠️ ${msg}</div>`;
+}
+
+function setStatus(msg, spinning) {
+  const el = document.getElementById('status');
+  el.innerHTML = msg ? (spinning ? '<div class="spinner"></div>' : '') + `<span>${msg}</span>` : '';
+}
+
+function clearOverlays() {
+  if (routeLine)  { map.removeLayer(routeLine);  routeLine = null; }
+  if (hypoLayer)  { map.removeLayer(hypoLayer);  hypoLayer = null; }
+  if (locMarker)  { map.removeLayer(locMarker);  locMarker = null; }
+  if (preQMarker) { map.removeLayer(preQMarker); preQMarker = null; }
+}
+
+function reset() {
+  simRunning = false;
+  clearOverlays();
+  if (pathLine) { map.removeLayer(pathLine); pathLine = null; }
+  wpMarkers.forEach(m => map.removeLayer(m));
+  wpMarkers = []; waypoints = [];
+  document.getElementById('results').innerHTML = '';
+  setStatus('');
+  updateUI();
+  if (areaInfo) map.setView(areaInfo.center, areaInfo.zoom);
+}
+</script>
+</body>
+</html>

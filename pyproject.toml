@@ -1,0 +1,27 @@
+[project]
+name = "anumaan"
+version = "1.0.0"
+description = "Anumaan (\"to deduce / dead reckoning\") — a zero-GPS, fully offline navigation system: time-based dead reckoning plus TERCOM terrain-contour recovery. This package is the desktop web prototype; the native iOS app lives in ios/."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    # Web app
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "requests>=2.31",        # offline tile + geocode downloads
+    # Map data + routing
+    "osmnx>=2.0",            # download OSM road graphs (pulls networkx, shapely, geopandas)
+    "networkx>=3.0",         # shortest-path routing
+]
+
+[dependency-groups]
+dev = ["pytest>=7.0"]
+llm = [
+    "anthropic>=0.30",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Anumaan — Offline Navigation</title>
+  <link rel="stylesheet" href="/static/vendor/maplibre-gl.css" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <h1>Anumaan<span>offline nav</span></h1>
+
+      <nav id="tabs">
+        <button data-tab="maps" class="active">Maps</button>
+        <button data-tab="home">Home</button>
+        <button data-tab="nav">Navigate</button>
+      </nav>
+
+      <!-- MAPS -->
+      <section id="tab-maps" class="tab active">
+        <h2>Download an area</h2>
+        <label>Name
+          <input id="dl-name" placeholder="e.g. Home turf" />
+        </label>
+        <label>Place (city, state, country)
+          <input id="dl-place" placeholder="Austin, Texas, USA" />
+        </label>
+        <label>Radius: <span id="dl-radius-val">3.0</span> km
+          <input id="dl-radius" type="range" min="500" max="8000" step="250" value="3000" />
+        </label>
+        <button id="dl-go" class="primary">Download area</button>
+        <p class="muted">Downloads the road network and extracts a Protomaps
+          vector basemap for the area (one small file, ~1–5 MB). Needs internet
+          once; renders fully offline afterwards.</p>
+        <div id="dl-progress" class="hidden">
+          <div class="bar"><div id="dl-bar"></div></div>
+          <div id="dl-msg" class="muted"></div>
+        </div>
+
+        <h2>Downloaded areas</h2>
+        <ul id="area-list" class="list"></ul>
+      </section>
+
+      <!-- HOME -->
+      <section id="tab-home" class="tab">
+        <h2>Home location</h2>
+        <p class="muted">Pick an area first, then click the map to drop your home pin.</p>
+        <button id="home-pick">Click map to set home</button>
+        <button id="home-save" class="primary" disabled>Save home</button>
+        <div id="home-info" class="muted"></div>
+      </section>
+
+      <!-- NAV -->
+      <section id="tab-nav" class="tab">
+        <h2>Navigate</h2>
+        <div class="row">
+          <button id="nav-set-start">Set start</button>
+          <button id="nav-use-home">Use home</button>
+        </div>
+        <button id="nav-set-dest">Set destination</button>
+        <div id="route-info" class="muted"></div>
+        <button id="nav-route" class="primary" disabled>Compute route</button>
+
+        <label>Initial speed: <span id="nav-speed-val">11</span> m/s
+          <input id="nav-speed" type="range" min="3" max="35" step="1" value="11" />
+        </label>
+        <label class="check">
+          <input id="nav-sim" type="checkbox" /> Simulate phone (no device needed)
+        </label>
+        <button id="nav-start" class="primary" disabled>Start navigation</button>
+        <button id="nav-advance" class="hidden">✓ I’ve reached the next milestone</button>
+        <button id="nav-stop" class="danger hidden">Stop</button>
+
+        <div id="hud" class="hidden">
+          <div id="turn-banner" class="hidden"></div>
+          <div class="hud-grid">
+            <div><span class="k">speed</span><span id="hud-speed" class="v">–</span></div>
+            <div><span class="k">progress</span><span id="hud-prog" class="v">–</span></div>
+            <div><span class="k">node</span><span id="hud-node" class="v">–</span></div>
+            <div><span class="k">IMU var</span><span id="hud-var" class="v">–</span></div>
+            <div><span class="k">stationary</span><span id="hud-stat" class="v">–</span></div>
+            <div><span class="k">heading</span><span id="hud-head" class="v">–</span></div>
+            <div><span class="k">sensors</span><span id="hud-sensors" class="v">–</span></div>
+            <div><span class="k">packets</span><span id="hud-pkts" class="v">–</span></div>
+          </div>
+          <div id="phone-hint" class="muted"></div>
+          <ul id="event-log" class="list"></ul>
+        </div>
+      </section>
+
+      <div id="toast" class="hidden"></div>
+    </aside>
+
+    <main id="map"></main>
+  </div>
+
+  <script src="/static/vendor/maplibre-gl.js"></script>
+  <script src="/static/vendor/pmtiles.js"></script>
+  <script src="/static/vendor/protomaps-themes-base.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

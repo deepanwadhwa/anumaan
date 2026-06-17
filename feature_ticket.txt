@@ -1,0 +1,74 @@
+Feature Specification: Wilderness Terrain Contour Navigation (WTCN) & Recovery Engine
+1. Product Overview
+The WTCN module expands the offline navigation system beyond human-made roads. It uses a combination of offline Digital Elevation Models (DEM), OpenStreetMap (OSM) topological data, and the smartphone's internal physics sensors (Barometer, Compass, Gyroscope) to perform zero-GPS dead reckoning and probabilistic location recovery in the wilderness.
+
+2. Data & Sensor Architecture
+Offline Terrain Data: 30-meter resolution Digital Elevation Models (DEM) stored locally.
+
+Format Options: Raw Cloud Optimized GeoTIFFs (for fast backend python math) or locally converted RGB Terrain Tiles (.pmtiles) via Mapbox's rio-rgbify (for combined UI rendering and math).
+
+Sensor Stack (Passive Siphon):
+
+Barometer: Measures relative atmospheric pressure to track real-time elevation changes (hills and valleys).
+
+Magnetometer (Compass): Tracks absolute headings.
+
+Gyroscope: Detects sharp geometric changes (e.g., trail switchbacks).
+
+3. Core Feature: Topological Dead-Reckoning
+In environments without semantic milestones (stop signs, intersections), the system uses natural geography to auto-snap the user's location.
+
+Z-Axis Checkpoints: The system matches real-time barometer fluctuations against the 30m DEM to identify and snap to localized peaks, saddles, and ravine floors.
+
+Geometric Checkpoints: The gyroscope detects 180-degree hairpin turns and matches them to switchbacks on the offline map.
+
+Natural Interrogations: The UI prompts the user to visually confirm natural topological features tagged in OSM (e.g., "Did you just cross a creek?").
+
+4. Core Feature: The "I'm Lost" Recovery Protocol
+A probabilistic rescue engine that solves the "Kidnapped Robot Problem" using a Particle Filter and directed human movement.
+
+Step-by-Step UX & Logic Flow
+The Panic Button: User activates "I'm Lost" mode.
+
+The Ghost Drop: The system scatters 100,000 localized "particles" (possible locations) across the offline map radius.
+
+The Active Command: The UI instructs the user: "Find a clear path. Walk in a straight line for 10 minutes. Do not change direction."
+
+The Sensor Siphon: The compass locks the arbitrary heading vector. The barometer records the exact shape of the elevation profile over time.
+
+Dynamic Time Warping (DTW): The backend uses DTW algorithms to "stretch" and "squish" the user's time-based barometer data to match the distance-based spatial profiles of the offline DEM, allowing the system to work regardless of human walking speed.
+
+The Cull: The Particle Filter deletes any "ghosts" on the map whose DEM profile along that specific compass heading does not perfectly match the DTW-processed barometer data.
+
+The Tie-Breaker Interrogation: Once the filter reduces the possible locations to 2 or 3 clusters, the UI asks a highly specific visual elimination question (e.g., "Look West. Is the horizon blocked by a ridge?") to achieve Location Lock.
+
+5. Constraint & Edge Case Mitigations
+The wilderness introduces severe data noise. The system relies on strict physical rules to prevent mathematical failure.
+
+A. Sensor Noise (The Pocket Rule)
+Problem: Arm swinging simulates rapid altitude jumps (Bernoulli effect/vertical displacement).
+
+Solution: The app mandates the phone be secured to the torso/pocket. A Low-Pass Filter is applied to the barometer data stream to smooth out walking gait vibrations and isolate macro terrain slopes.
+
+B. Spatial Aliasing (The Flatland Trap)
+Problem: Flat terrain (e.g., salt flats) or perfectly uniform terrain yields no unique barometer signature, preventing the Particle Filter from culling ghosts.
+
+Solution: The app calculates a real-time variance metric. If the elevation delta remains below a minimum threshold for 5 minutes ("Flatline Detected"), the UI commands the user to walk further to find a macro-feature, or falls back entirely to visual Horizon Interrogations.
+
+C. Contour Line Ambiguity (The Appalachian Problem)
+Problem: Walking straight up a massive, uniform mountain face or through repeating rolling hills leaves the system stuck with a horizontal line of identical ghost locations.
+
+Solution (Mountain Face): The UI commands an Orthogonal Traverse ("Turn 90 degrees and walk across the slope"). Slicing across the mountain forces the barometer to detect the unique sequence of micro-gullies and spurs.
+
+Solution (Rolling Hills): The UI directs the user straight downhill to the bottom of the drainage basin. The compass heading of the flowing water (or dry ravine) instantly eliminates competing hills.
+
+D. Map Inaccuracy (The "Ghost Creek" & Asymmetric Trust)
+Problem: User visually confirms a creek, but the 30m map data or OSM tags missed it. Strict map-matching would permanently delete the user's true location.
+
+Solution: The system enforces Asymmetric Trust.
+
+Trust Physics: It relies on the DEM's V-shape depression (the ravine itself), not the semantic OSM "water" tag.
+
+Soft Pruning: Unmapped positive features (e.g., user sees an unmapped trail) lower a ghost's probability score rather than deleting it.
+
+Hard Pruning: Human-tagged map data is only used for massive, undeniable negative constraints (e.g., User does not see the 4-lane highway the map insists is there = Delete ghost).

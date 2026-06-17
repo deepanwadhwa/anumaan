@@ -1,0 +1,10 @@
+# Swift package build
+AnumaanCore/.build/
+.build/
+
+# Xcode (project is generated from project.yml by xcodegen)
+AnumaanApp/Anumaan.xcodeproj/
+AnumaanApp/Generated/
+DerivedData/
+*.xcuserstate
+xcuserdata/

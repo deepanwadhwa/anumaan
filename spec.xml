@@ -1,0 +1,97 @@
+<project_specification>
+  <project_name>Human-Vector Offline Navigation (Anumaan) + SDE via UDP Bridge</project_name>
+  
+  <overview>
+    Build a zero-GPS, fully offline navigation state machine. The system uses time-based dead reckoning to predict arrival at OpenStreetMap (OSM) milestones. It implements a Stationary Detection Engine (SDE) using accelerometer data to auto-snap to nodes when stopped. Because the development environment (a laptop) lacks a physical IMU, the system MUST be architected with a decoupled sensor ingestion layer. It will receive real-time, live telemetry from a smartphone via a local UDP/HTTP bridge over a mobile hotspot.
+  </overview>
+
+  <boundaries>
+    <must_do>
+      - Run entirely locally (offline) without external internet APIs.
+      - Decouple the Sensor Ingestion logic from the core State Machine.
+      - Open a local network port (e.g., UDP 8000) to listen for incoming JSON sensor payloads.
+    </must_do>
+    <must_not_do>
+      - DO NOT attempt to read local laptop hardware sensors.
+      - DO NOT integrate accelerometer data to calculate continuous speed (velocity). Use it strictly for binary stationary detection.
+    </must_not_do>
+  </boundaries>
+
+  <technology_stack>
+    - Language: Python 3.10+
+    - Map Parsing: `osmnx`
+    - Graph Routing: `networkx`
+    - Networking: `socket` (UDP/TCP) or `FastAPI` (for HTTP POST ingestion)
+  </technology_stack>
+
+  <architecture>
+    <data_structures>
+      1. `Milestone`: Represents a physical OSM node.
+         - `id` (str): Node ID.
+         - `type` (str): "stop_sign", "traffic_light", etc.
+         - `distance_from_prior` (float): Meters.
+         
+      2. `NavState`: Tracks global movement.
+         - `current_milestone_index` (int): Active route pointer.
+         - `estimated_speed` (float): System speed in m/s.
+         - `accumulated_distance` (float): Meters.
+
+      3. `SensorState`: Singleton tracking remote IMU telemetry.
+         - `raw_accel` (tuple): Latest (x, y, z) vector.
+         - `accel_variance` (float): Rolling 1.5s variance magnitude.
+         - `is_stationary` (bool): Binary state trigger.
+    </data_structures>
+
+    <business_rules>
+      <rule id="1">
+        **Dead Reckoning Engine:**
+        $T_{exp} = \frac{\text{distance\_from\_prior}}{\text{estimated\_speed}}$
+      </rule>
+      
+      <rule id="2">
+        **Sensor Ingestion (UDP Bridge):**
+        Run a background thread listening on `0.0.0.0:8000`. It expects incoming JSON payloads containing `accel_x`, `accel_y`, `accel_z` (e.g., from the 'Sensor Logger' iOS/Android app). Parse this stream into the `SensorState` singleton.
+      </rule>
+
+      <rule id="3">
+        **Stationary Detection Engine (SDE):**
+        Continuously calculate the variance of the acceleration vector magnitude ($\sqrt{x^2 + y^2 + z^2}$) over a rolling 1.5-second buffer.
+        If `accel_variance` falls below `STATIONARY_THRESHOLD` (e.g., 0.02g) for > 1 second, set `is_stationary = True`.
+        If `is_stationary == True` AND `accumulated_distance` is within 50 meters of the next `Milestone`, AUTOMATICALLY trigger the arrival handler.
+      </rule>
+
+      <rule id="4">
+        **Speed Smoothing (Moving Average):**
+        Upon a manual or automated arrival trigger, compute $V_{true} = \frac{\text{Distance}}{T_{actual}}$. Update global speed using:
+        $\text{estimated\_speed} = (\text{estimated\_speed} \times 0.7) + (V_{true} \times 0.3)$
+      </rule>
+    </business_rules>
+  </architecture>
+
+  <implementation_steps>
+    <step number="1">
+      <title>Network Bridge & Sensor State</title>
+      <tasks>
+        - Implement the `UDP Listener` on port 8000 to catch incoming JSON strings.
+        - Implement the `SensorState` singleton and the rolling variance buffer.
+        - Log incoming telemetry to the console to verify phone-to-laptop connectivity.
+      </tasks>
+    </step>
+    
+    <step number="2">
+      <title>State Machine & Dead Reckoning</title>
+      <tasks>
+        - Implement `Milestone` and `NavState`.
+        - Create a mock route of 5 milestones.
+        - Write the ticker loop that increments `accumulated_distance`.
+      </tasks>
+    </step>
+
+    <step number="3">
+      <title>The Auto-Snap Integration</title>
+      <tasks>
+        - Write the listener logic: If `is_stationary` goes high while in range of a node, calculate $V_{true}$, apply speed smoothing, advance the milestone index, and output a "NODE SNAPPED" success log.
+      </tasks>
+    </step>
+  </implementation_steps>
+</project_specification>
