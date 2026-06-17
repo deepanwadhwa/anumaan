@@ -11,11 +11,12 @@ Everything runs offline. The only step that needs the internet is downloading th
 There are two implementations of the same idea.
 
 - **iOS app (`ios/`)** is the real product. It is a native Swift app that runs entirely on the phone, with no server and no network once an area is downloaded. It has three screens: **Navigate** (follow a route by dead reckoning), **Track** (record a walk), and **Lost** (recover your position from the terrain with TERCOM). See [`ios/README.md`](ios/README.md) to build and run it.
-- **Web prototype** is the rest of this Python project. It is a small web app you run on a computer. Your phone streams its sensor data to it over the local network, and the browser shows you moving along a real route with no GPS. The navigation logic was written and tested here in Python first, then rewritten natively in Swift for the iOS app.
+- **Web prototype** is a small web app you run on a computer. Your phone streams its sensor data to it over the local network, and the browser shows you moving along a real route with no GPS.
+- **Map Simulator** is served at `/sim`. It lets you draw walk paths on a map, synthesize walk telemetry (noisy barometer and heading), and run the Swift recovery engine (`AnumaanSim` CLI) to visualize the particle filter and Q&A engine converging onto your true position.
 
-The rest of this document covers the **web prototype**.
+The rest of this document covers the **web prototype and simulator**.
 
-## Run the web prototype
+## Run the web prototype & simulator
 
 This project uses [uv](https://docs.astral.sh/uv/) and the [`pmtiles`](https://docs.protomaps.com/pmtiles/cli) command line tool. Install both once:
 
@@ -36,6 +37,17 @@ Open the URL in a browser. There are three screens in the sidebar:
 1. **Maps.** Type a place (for example, `Asheville, North Carolina, USA`) and a radius, then click **Download area**. This downloads the road network and also extracts a Protomaps vector basemap for the area (one `.pmtiles` file, roughly 1 to 5 MB). Pick the area from the list to load it.
 2. **Home.** Click the map to drop your home pin, then click **Save home**.
 3. **Navigate.** Set a **Start** (or click **Use home**) and a **Destination** by clicking the map, click **Compute route**, then click **Start navigation**.
+
+
+## The Map Simulator (`/sim`)
+
+The simulator lets you run and visualize the Anumaan recovery engine entirely inside the browser:
+
+1. Open http://127.0.0.1:8080/sim in your browser.
+2. **Offline Map Area Selection**: The sidebar includes a dropdown of all cached areas (loaded from `data/sim_areas.json`). You can also use the geocoding search input to pan/zoom anywhere in the world and click **Download Current View** to download the OSM roads and AWS DEM elevation tiles for a custom area. The selection is persistent across refreshes via `localStorage`.
+3. **Walk Modes**: Supports **Paved Roads** (snapping particle filter) and **Off-Trail** (terrain-contour TERCOM matching with road nodes masked out).
+4. **Draw and Run**: Click the map to draw your simulated walk path. Once you have at least 2 waypoints, click **Run Sim**.
+5. **Q&A Localization Engine**: The simulator calls the Swift `AnumaanSim` CLI, runs the particle filter recovery, and returns the list of hypotheses and questions. You can answer the interactive Q&A questions (Yes/No) in the sidebar to see the hypothesis cloud (orange dots) filter down and converge onto the true location (pink `?` marker).
 
 ## Offline basemap (Protomaps and PMTiles)
 
