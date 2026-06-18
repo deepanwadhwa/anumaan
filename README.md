@@ -140,6 +140,36 @@ data/              # downloaded areas (graph + basemap) and saved home (gitignor
 tests/             # engine, SDE, and bridge tests
 ```
 
+## Where this is going (future directions)
+
+Anumaan already recovers your position two ways: by **snapping to roads** when you are on them, and by **matching the terrain** when you are not. The road case works very well. The off-road case is the hard one, and it is where most of the upcoming work is aimed. Here is the plan, and what we have learned so far.
+
+### The wilderness "Lost" mode
+
+The goal is easy to state: someone is lost in the backcountry — a national park, a state forest — with no GPS, no signal, and often no marked trail under their feet. All they have is the phone's barometer, which gives the **change** in elevation but not the absolute height, and its compass. Can we still tell them where they are?
+
+The idea is **terrain matching**. As you walk, the rise and fall of the ground traces out an elevation profile. If you have an offline elevation map of the area, you can slide that profile over the map and find the one spot where it fits. Where it fits is where you are.
+
+To study this we built a **"simulate before you go" benchmark**, in the Map Simulator. You download a park once (this also caches its elevation tiles), choose **Off-trail**, and the tool runs the experiment for you. It lays out several walking **shapes** — a triangle, a square, a rectangle, a circle, and a zigzag — across the real terrain at many random spots, runs each one through the recovery engine, and reports two things: which shape gets you **found** most often, and how **accurately**. The best shape is not the same everywhere; it depends on the shape of the land. So the point is that you can run this for *your* park before you go, and learn what to walk if you get lost there.
+
+What we have learned running it on real mountains (the Great Smokies, Yosemite):
+
+- **It works, and it is fast.** On terrain with real relief, the engine locates a 3–5 km walk to within tens of meters, in under a second per walk.
+- **But the result is split:** the engine is either dead-on, or wrong by kilometers, with little in between. The misses are not random. They land on a *different spot at the same elevation* that happens to have the same up-and-down pattern. Big mountains repeat themselves.
+- **The deeper reason is that the search has too little to go on.** On a road you can only be *on the road*, so the set of possible positions is tiny and the engine gets to near-certainty. Off-trail you could be anywhere in the park, so a short elevation profile matches hundreds of spots almost equally well. Changing the walk shape helps a little, but it is a small knob; it cannot fix a search that has nothing pinning it down.
+
+So the real work is **shrinking the set of places you could be**. Three planned ways to do that, in order of how much we expect each to help:
+
+1. **Start from where you were last seen.** A lost hiker did not appear out of thin air in the middle of the park. They left a known trailhead or campsite and wandered some distance from it. Instead of searching the whole park, we will search a circle around that last-known point, and grow the circle slowly with the hours since they were last seen. This turns an impossible park-wide search into a small, solvable, local one.
+2. **Combine several short walks instead of one long one.** The recovery engine was built to fuse many walks into a single, tighter estimate: walk a little, narrow the candidates, walk again, narrow them further. One blind walk is the weakest possible input; a handful of short ones, each cutting the field down, is far stronger.
+3. **Use the compass.** An absolute heading (true north) rules out matches that only fit if you rotate them. Pinning the orientation removes a whole class of look-alike spots.
+
+### Trail maps
+
+The road approach works because the road network is a hard constraint: it forces your position onto a thin set of lines. Most wilderness is not truly roadless either. Parks are laced with **mapped hiking trails**, and OpenStreetMap already has them. The plan is to treat the **trail network the same way we treat roads** — download it with the area, and snap to it.
+
+This helps in two ways. If a lost hiker stumbles onto *any* trail, even without knowing which one, we can pin them to the trail graph and recover their position the strong, road-style way. And even when they are off the trails, the nearby trail network shrinks the search: you are probably within some distance of a trail, not in the one truly trackless pocket of the map. Trail maps are the bridge between the road case that already works and the open-terrain case that is hard.
+
 ## Notes and limits
 
 - The basemap is a single Protomaps `.pmtiles` file per area, extracted on download with the `pmtiles` tool. There are no raster tiles, no tile server, and no API key.

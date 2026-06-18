@@ -21,6 +21,16 @@ body { display:flex; height:100vh; font-family:-apple-system,BlinkMacSystemFont,
 .sb-header h1 { font-size:17px; font-weight:700; color:#e94560; letter-spacing:.3px; }
 .sb-header p  { font-size:11px; color:#5a6380; margin-top:2px; }
 
+/* tabs */
+.tab-nav { display:flex; border-bottom:1px solid #1e2235; flex-shrink:0; }
+.tab-btn {
+  flex:1; padding:9px 12px; background:transparent; color:#5a6880;
+  border:none; border-bottom:2px solid transparent;
+  font-size:12px; font-weight:600; cursor:pointer; transition:all .15s;
+}
+.tab-btn:hover { color:#dde1ec; }
+.tab-btn.tab-active { color:#e94560; border-bottom-color:#e94560; }
+
 /* steps */
 .steps { padding:12px 16px; border-bottom:1px solid #1e2235; display:flex; flex-direction:column; gap:7px; }
 .step  { display:flex; gap:10px; align-items:flex-start; opacity:.35; transition:opacity .2s; }
@@ -132,174 +142,292 @@ body { display:flex; height:100vh; font-family:-apple-system,BlinkMacSystemFont,
   padding:4px 16px; font-size:11px; color:#4a5270;
   border-bottom:1px solid #1e2235; min-height:24px;
 }
+
+/* ---- Benchmark panel ---- */
+.bench-controls {
+  padding:12px 16px; border-bottom:1px solid #1e2235;
+  display:flex; flex-direction:column; gap:10px;
+}
+.bench-row { display:flex; flex-direction:column; gap:3px; }
+.bench-row label {
+  font-size:11px; color:#8892a4;
+  display:flex; justify-content:space-between;
+}
+.bench-val { color:#dde1ec; font-weight:700; }
+.bench-row input[type=range] { width:100%; accent-color:#e94560; cursor:pointer; }
+
+.bench-status-bar {
+  padding:10px 16px; border-bottom:1px solid #1e2235;
+}
+.bench-status-row { display:flex; gap:8px; align-items:center; margin-bottom:6px; }
+.bench-status-text { font-size:12px; color:#8892a4; }
+.bench-progress-track { height:4px; background:#1e2235; border-radius:2px; }
+.bench-progress-fill { height:100%; background:#e94560; border-radius:2px; width:0%; transition:width .3s; }
+
+/* Score badge */
+.bench-score { text-align:center; padding:18px 0 12px; }
+.bench-score-num { font-size:52px; font-weight:800; line-height:1; }
+.bench-score-label { font-size:10px; color:#5a6880; margin-top:5px; text-transform:uppercase; letter-spacing:.5px; }
+
+/* Stat tiles */
+.bench-tiles {
+  display:grid; grid-template-columns:1fr 1fr; gap:6px;
+  padding:0 16px 14px;
+}
+.bench-tile {
+  background:#13131f; border:1px solid #1e2235; border-radius:6px; padding:9px 11px;
+}
+.bench-tile-val { font-size:17px; font-weight:700; color:#dde1ec; }
+.bench-tile-lbl { font-size:9px; color:#4a5270; text-transform:uppercase; letter-spacing:.4px; margin-top:3px; }
+
+/* Walk list */
+.bench-list-header {
+  padding:6px 16px 4px; font-size:10px; font-weight:700; color:#4a5270;
+  text-transform:uppercase; letter-spacing:.5px; border-top:1px solid #1e2235;
+}
+.bench-walk-item {
+  display:flex; gap:8px; align-items:center;
+  padding:6px 16px; border-bottom:1px solid #12131e;
+  cursor:pointer; font-size:11px; transition:background .1s;
+}
+.bench-walk-item:hover { background:#13131f; }
+.bench-walk-item.highlighted { background:#1a1a2e; }
+.bench-walk-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.bench-walk-info { flex:1; min-width:0; }
+.bench-walk-top { display:flex; justify-content:space-between; color:#8892a4; margin-bottom:1px; }
+.bench-walk-bot { color:#4a5270; }
 </style>
 </head>
 <body>
 <div id="map"></div>
 
 <div id="sidebar">
+  <!-- ---- shared header ---- -->
   <div class="sb-header">
-    <h1 style="margin-bottom: 6px;">Anumaan Sim</h1>
-    <select id="select-area" onchange="onAreaChange()" style="width: 100%; padding: 4px 8px; background: #13131f; color: #dde1ec; border: 1px solid #1e2235; border-radius: 5px; font-size: 11px; font-weight: 600; cursor: pointer; outline: none;">
+    <h1 style="margin-bottom:6px;">Anumaan Sim</h1>
+    <select id="select-area" onchange="onAreaChange()" style="width:100%;padding:4px 8px;background:#13131f;color:#dde1ec;border:1px solid #1e2235;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;outline:none;">
       <option value="">Loading areas…</option>
     </select>
   </div>
 
-  <div style="padding: 12px 16px; border-bottom: 1px solid #1e2235; background: #11111a;">
-    <div style="font-size: 10px; font-weight: 700; color: #e94560; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 8px;">
-      Offline Map Area
+  <!-- ---- shared download section ---- -->
+  <div style="padding:12px 16px;border-bottom:1px solid #1e2235;background:#11111a;">
+    <div style="font-size:10px;font-weight:700;color:#e94560;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Offline Map Area</div>
+    <div style="display:flex;gap:6px;margin-bottom:8px;">
+      <input type="text" id="search-input" placeholder="Search city (e.g. Seattle)…" style="flex:1;padding:6px 10px;background:#13131f;color:#dde1ec;border:1px solid #1e2235;border-radius:5px;font-size:12px;outline:none;">
+      <button class="btn btn-undo" onclick="searchLocation()" style="padding:6px 10px;margin:0;line-height:1.2;">🔍</button>
     </div>
-    <div style="display: flex; gap: 6px; margin-bottom: 8px;">
-      <input type="text" id="search-input" placeholder="Search city (e.g. Seattle)..." style="flex: 1; padding: 6px 10px; background: #13131f; color: #dde1ec; border: 1px solid #1e2235; border-radius: 5px; font-size: 12px; outline: none;">
-      <button class="btn btn-undo" onclick="searchLocation()" style="padding: 6px 10px; margin: 0; line-height: 1.2;">🔍</button>
-    </div>
-    <button class="btn btn-undo" id="btn-download-view" onclick="downloadView()" style="width: 100%; padding: 7px 10px; font-size: 11px; background: #1e2235; color: #8892a4; border: 1px solid #2d3142;">📥 Download Current View</button>
+    <button class="btn btn-undo" id="btn-download-view" onclick="downloadView()" style="width:100%;padding:7px 10px;font-size:11px;background:#1e2235;color:#8892a4;border:1px solid #2d3142;">📥 Download Current View</button>
   </div>
 
-  <div class="steps" id="steps">
-    <div class="step active" id="s1">
-      <div class="step-num">1</div>
-      <div class="step-text">Click the map to draw your walk path — add as many waypoints as you like</div>
+  <!-- ---- tab nav ---- -->
+  <div class="tab-nav">
+    <button class="tab-btn tab-active" id="tab-single" onclick="switchTab('single')">Single Walk</button>
+    <button class="tab-btn" id="tab-bench" onclick="switchTab('bench')">Region Benchmarker</button>
+  </div>
+
+  <!-- ================================================================
+       Single Walk Panel
+  ================================================================ -->
+  <div id="panel-single">
+    <div class="steps" id="steps">
+      <div class="step active" id="s1">
+        <div class="step-num">1</div>
+        <div class="step-text">Click the map to draw your walk path — add as many waypoints as you like</div>
+      </div>
+      <div class="step" id="s2">
+        <div class="step-num">2</div>
+        <div class="step-text">Hit <strong>Run Sim</strong> — more turns = better localisation</div>
+      </div>
     </div>
-    <div class="step" id="s2">
-      <div class="step-num">2</div>
-      <div class="step-text">Hit <strong>Run Sim</strong> — more turns = better localisation</div>
+
+    <div style="padding:0 16px 8px 16px;">
+      <select id="select-mode" class="select-mode">
+        <option value="road">Paved Roads</option>
+        <option value="offtrail">Off-Trail</option>
+      </select>
     </div>
+
+    <div id="toolbar">
+      <button class="btn btn-undo" id="btn-undo" onclick="undoWaypoint()" disabled>↩ Undo</button>
+      <button class="btn btn-run"  id="btn-run"  onclick="runSim()" disabled>Run Sim</button>
+      <button class="btn btn-reset" onclick="reset()">Reset</button>
+    </div>
+
+    <div id="wp-count"></div>
+    <div id="status"></div>
+    <div id="results"></div>
   </div>
 
-  <div style="padding: 0 16px 8px 16px;">
-    <select id="select-mode" class="select-mode">
-      <option value="road">Paved Roads</option>
-      <option value="offtrail">Off-Trail</option>
-    </select>
-  </div>
+  <!-- ================================================================
+       Region Benchmarker Panel
+  ================================================================ -->
+  <div id="panel-bench" style="display:none;flex-direction:column;flex:1;">
 
-  <div id="toolbar">
-    <button class="btn btn-undo" id="btn-undo" onclick="undoWaypoint()" disabled>↩ Undo</button>
-    <button class="btn btn-run"  id="btn-run"  onclick="runSim()" disabled>Run Sim</button>
-    <button class="btn btn-reset" onclick="reset()">Reset</button>
-  </div>
+    <!-- Controls -->
+    <div class="bench-controls">
+      <select id="bench-mode" class="select-mode" style="margin-bottom:0;" onchange="onBenchModeChange()">
+        <option value="road">🛣️ Paved Roads</option>
+        <option value="offtrail">⛰️ Off-trail (wilderness)</option>
+      </select>
 
-  <div id="wp-count"></div>
-  <div id="status"></div>
-  <div id="results"></div>
+      <div class="bench-row" style="margin-top:8px;">
+        <label><span id="dist-label">Min Distance</span> <span class="bench-val" id="min-dist-val">2.0</span> km</label>
+        <input type="range" id="min-dist" min="1" max="5" step="0.5" value="2"
+               oninput="document.getElementById('min-dist-val').textContent=parseFloat(this.value).toFixed(1)">
+      </div>
+
+      <!-- Road-only controls -->
+      <div id="road-controls">
+        <div class="bench-row">
+          <label>Start Points <span class="bench-val" id="num-starts-val">5</span></label>
+          <input type="range" id="num-starts" min="1" max="20" value="5"
+                 oninput="document.getElementById('num-starts-val').textContent=this.value">
+        </div>
+        <div class="bench-row">
+          <label>Walks / Start <span class="bench-val" id="walks-per-start-val">4</span></label>
+          <input type="range" id="walks-per-start" min="1" max="10" value="4"
+                 oninput="document.getElementById('walks-per-start-val').textContent=this.value">
+        </div>
+        <div class="bench-row">
+          <label>Min Turns <span class="bench-val" id="min-turns-val">0</span> <span style="color:#4a5270;font-weight:400;">(0 = off)</span></label>
+          <input type="range" id="min-turns" min="0" max="15" value="0"
+                 oninput="document.getElementById('min-turns-val').textContent=this.value">
+        </div>
+        <select id="walk-style" class="select-mode" style="margin-bottom:0;margin-top:6px;">
+          <option value="default">Walk style: Default (random)</option>
+          <option value="self_avoiding">Walk style: Self-avoiding (~9% revisit)</option>
+          <option value="strict_trail">Walk style: Strict trail (0% street reuse)</option>
+        </select>
+        <div class="bench-row" style="flex-direction:row;align-items:center;gap:8px;margin-top:6px;">
+          <input type="checkbox" id="randomize-min-q" style="width:auto;cursor:pointer;">
+          <label for="randomize-min-q" style="cursor:pointer;margin:0;font-size:11px;">Randomize min questions (1–4)</label>
+        </div>
+      </div>
+
+      <!-- Off-trail-only controls -->
+      <div id="offtrail-controls" style="display:none;">
+        <select id="offtrail-shape" class="select-mode" style="margin-bottom:0;">
+          <option value="all">Shapes: All (compare)</option>
+          <option value="triangle">Shape: ▲ Triangle only</option>
+          <option value="square">Shape: ■ Square only</option>
+          <option value="rectangle">Shape: ▬ Rectangle only</option>
+          <option value="circle">Shape: ● Circle only</option>
+          <option value="zigzag">Shape: ⋁ Zigzag only</option>
+        </select>
+        <div class="bench-row" style="margin-top:8px;">
+          <label>Placements / shape <span class="bench-val" id="placements-val">8</span></label>
+          <input type="range" id="placements" min="2" max="60" value="8"
+                 oninput="document.getElementById('placements-val').textContent=this.value">
+        </div>
+        <div class="bench-row">
+          <label>Zigzag angle <span class="bench-val" id="zigzag-angle-val">30</span>°
+            <span style="color:#4a5270;font-weight:400;">(off travel line)</span></label>
+          <input type="range" id="zigzag-angle" min="10" max="80" value="30"
+                 oninput="document.getElementById('zigzag-angle-val').textContent=this.value">
+        </div>
+        <div style="font-size:10px;color:#4a5270;font-style:italic;padding:2px 0 4px;">
+          Compare shapes to find the best, then re-run just that shape with more placements. Low zigzag angle = open/spread; high = tight back-and-forth. Needs real relief.
+        </div>
+      </div>
+
+      <button class="btn btn-run" id="btn-bench-run" onclick="runBenchmark()" style="width:100%;margin-top:6px;">Run Benchmark</button>
+    </div>
+
+    <!-- Progress bar (hidden until run) -->
+    <div class="bench-status-bar" id="bench-status-bar" style="display:none;">
+      <div class="bench-status-row">
+        <div class="spinner"></div>
+        <span class="bench-status-text" id="bench-status-text"></span>
+      </div>
+      <div class="bench-progress-track">
+        <div class="bench-progress-fill" id="bench-progress-fill"></div>
+      </div>
+    </div>
+
+    <!-- Results area -->
+    <div id="bench-results" style="flex:1;overflow-y:auto;"></div>
+  </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// ---- map ----
+// ============================================================
+// Map setup
+// ============================================================
 const map = L.map('map');
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution:'© OpenStreetMap', maxZoom:19
 }).addTo(map);
 
 let areaInfo = null;
-let waypoints = [];        // [{lat,lng}, ...]
+
+// ============================================================
+// Single-walk state
+// ============================================================
+let waypoints = [];
 let wpMarkers  = [];
 let pathLine   = null;
 let routeLine  = null, hypoLayer = null, locMarker = null, preQMarker = null;
 let simRunning = false;
 
 // ---- interactive Q&A state ----
-let qaCloud     = [];   // [{lat, lon, w, qa:[bool,...]}, ...]
-let qaQuestions = [];   // [{text, named}, ...]
+let qaCloud     = [];
+let qaQuestions = [];
 let qaAsked     = new Set();
-let qaLog       = [];   // [{text, answer}, ...]
+let qaLog       = [];
 
-// ---- search location ----
-function searchLocation() {
-  const q = document.getElementById('search-input').value.trim();
-  if (!q) return;
-  setStatus('Searching location...');
-  fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`)
-    .then(r => r.json())
-    .then(data => {
-      setStatus('');
-      if (data && data.length > 0) {
-        const item = data[0];
-        map.setView([parseFloat(item.lat), parseFloat(item.lon)], 14);
-      } else {
-        alert("Location not found");
-      }
-    })
-    .catch(err => {
-      setStatus('');
-      alert("Search error: " + err.message);
-    });
+// ============================================================
+// Benchmark state
+// ============================================================
+let benchJobId      = null;
+let benchPollTimer  = null;
+let benchPolylines  = [];   // [{line: L.Polyline, walk}]
+let highlightedIdx  = -1;
+
+// ============================================================
+// Tab management
+// ============================================================
+let activeTab = 'single';
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById('tab-single').classList.toggle('tab-active', tab === 'single');
+  document.getElementById('tab-bench').classList.toggle('tab-active', tab === 'bench');
+  document.getElementById('panel-single').style.display = tab === 'single' ? '' : 'none';
+  document.getElementById('panel-bench').style.display  = tab === 'bench'  ? 'flex' : 'none';
+  document.getElementById('panel-bench').style.flexDirection = 'column';
+
+  if (tab === 'single') {
+    clearBenchLayers();
+  } else {
+    clearSingleWalkOverlays();
+  }
 }
 
-// ---- boundary overlay manager ----
+// ============================================================
+// Shared area helpers
+// ============================================================
 let boundsOverlay = null;
+
 function updateBoundsOverlay(area) {
   if (boundsOverlay) { map.removeLayer(boundsOverlay); boundsOverlay = null; }
-  const bounds = [[area.south, area.west], [area.north, area.east]];
-  boundsOverlay = L.rectangle(bounds, {
-    color: '#e94560',
-    weight: 2,
-    fillOpacity: 0.05,
-    dashArray: '6 4',
-    interactive: false
+  boundsOverlay = L.rectangle([[area.south, area.west], [area.north, area.east]], {
+    color:'#e94560', weight:2, fillOpacity:0.05, dashArray:'6 4', interactive:false
   }).addTo(map);
 }
 
-// ---- download view ----
-function downloadView() {
-  if (simRunning) return;
-  const bounds = map.getBounds();
-  const south = bounds.getSouth();
-  const west = bounds.getWest();
-  const north = bounds.getNorth();
-  const east = bounds.getEast();
-  
-  const name = prompt("Enter a name for this downloaded area:", "Custom Area");
-  if (!name) return;
-  
-  setStatus('Downloading OSM roads and DEM tiles for current view...', true);
-  document.getElementById('btn-download-view').disabled = true;
-  
-  fetch('/api/sim/download', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ south, west, north, east, name })
-  })
-  .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
-  .then(({ ok, data }) => {
-    setStatus('');
-    document.getElementById('btn-download-view').disabled = false;
-    if (!ok) {
-      alert("Download failed: " + (data.detail || "unknown error"));
-      return;
-    }
-    
-    areaInfo = data.area;
-    areaInfo.name = data.name;
-    areaInfo.id = data.area_id;
-    
-    loadAreas(areaInfo.id);
-    
-    alert(`Successfully downloaded and cached maps for "${data.name}"!`);
-  })
-  .catch(err => {
-    setStatus('');
-    document.getElementById('btn-download-view').disabled = false;
-    alert("Error downloading view: " + err.message);
-  });
-}
-
-// ---- load areas ----
 function loadAreas(selectId) {
   fetch('/api/sim/areas')
     .then(r => r.json())
     .then(data => {
       const select = document.getElementById('select-area');
       select.innerHTML = '';
-      
+
       let defaultId = localStorage.getItem('selectedSimArea') || 'clemson';
       let selectedId = selectId || defaultId;
-      if (!data.areas[selectedId]) {
-        selectedId = 'clemson';
-      }
-      
+      if (!data.areas[selectedId]) selectedId = 'clemson';
+
       Object.keys(data.areas).forEach(id => {
         const a = data.areas[id];
         const opt = document.createElement('option');
@@ -308,12 +436,10 @@ function loadAreas(selectId) {
         if (id === selectedId) opt.selected = true;
         select.appendChild(opt);
       });
-      
+
       const activeId = select.value;
       if (activeId && data.areas[activeId]) {
-        areaInfo = data.areas[activeId];
-        areaInfo.id = activeId;
-        areaInfo.name = areaInfo.name || activeId;
+        areaInfo = { ...data.areas[activeId], id: activeId };
         localStorage.setItem('selectedSimArea', activeId);
         map.setView(areaInfo.center, areaInfo.zoom);
         updateBoundsOverlay(areaInfo);
@@ -331,26 +457,73 @@ function onAreaChange() {
     .then(r => r.json())
     .then(data => {
       if (data.areas[activeId]) {
-        areaInfo = data.areas[activeId];
-        areaInfo.id = activeId;
-        areaInfo.name = areaInfo.name || activeId;
+        areaInfo = { ...data.areas[activeId], id: activeId };
         updateBoundsOverlay(areaInfo);
-        reset();
+        if (activeTab === 'single') reset();
+        else clearBenchLayers();
       }
     });
 }
 
-// Initial load of areas
 loadAreas();
+switchTab('single');
 
+// ============================================================
+// Shared: search + download
+// ============================================================
+function searchLocation() {
+  const q = document.getElementById('search-input').value.trim();
+  if (!q) return;
+  setStatus('Searching location…');
+  fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`)
+    .then(r => r.json())
+    .then(data => {
+      setStatus('');
+      if (data && data.length > 0) {
+        map.setView([parseFloat(data[0].lat), parseFloat(data[0].lon)], 14);
+      } else { alert('Location not found'); }
+    })
+    .catch(err => { setStatus(''); alert('Search error: ' + err.message); });
+}
 
-// ---- map click ----
-map.on('click', function(e){
+function downloadView() {
   if (simRunning) return;
+  const b = map.getBounds();
+  const name = prompt('Enter a name for this downloaded area:', 'Custom Area');
+  if (!name) return;
+
+  setStatus('Downloading OSM roads and DEM tiles for current view…', true);
+  document.getElementById('btn-download-view').disabled = true;
+
+  fetch('/api/sim/download', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ south:b.getSouth(), west:b.getWest(), north:b.getNorth(), east:b.getEast(), name }),
+  })
+  .then(r => r.json().then(d => ({ ok:r.ok, data:d })))
+  .then(({ ok, data }) => {
+    setStatus('');
+    document.getElementById('btn-download-view').disabled = false;
+    if (!ok) { alert('Download failed: ' + (data.detail || 'unknown error')); return; }
+    areaInfo = { ...data.area, id:data.area_id };
+    loadAreas(data.area_id);
+    alert(`Successfully downloaded and cached maps for "${data.name}"!`);
+  })
+  .catch(err => {
+    setStatus('');
+    document.getElementById('btn-download-view').disabled = false;
+    alert('Error downloading view: ' + err.message);
+  });
+}
+
+// ============================================================
+// Single Walk — map interaction
+// ============================================================
+map.on('click', function(e) {
+  if (activeTab !== 'single' || simRunning) return;
   addWaypoint(e.latlng);
 });
 
-// ---- waypoint management ----
 function wpIcon(n) {
   return L.divIcon({ className:'', iconSize:[22,22], iconAnchor:[11,11],
     html:`<div style="background:#22c55e;color:#000;font-size:10px;font-weight:700;
@@ -365,8 +538,7 @@ const iconLoc = L.divIcon({ className:'', iconSize:[30,30], iconAnchor:[15,15],
 
 function addWaypoint(latlng) {
   waypoints.push(latlng);
-  const m = L.marker(latlng, {icon: wpIcon(waypoints.length)}).addTo(map);
-  wpMarkers.push(m);
+  wpMarkers.push(L.marker(latlng, {icon: wpIcon(waypoints.length)}).addTo(map));
   updatePathLine();
   updateUI();
 }
@@ -381,9 +553,8 @@ function undoWaypoint() {
 
 function updatePathLine() {
   if (pathLine) { map.removeLayer(pathLine); pathLine = null; }
-  if (waypoints.length >= 2) {
+  if (waypoints.length >= 2)
     pathLine = L.polyline(waypoints, {color:'#22c55e', weight:2.5, dashArray:'6 4', opacity:.8}).addTo(map);
-  }
 }
 
 function updateUI() {
@@ -397,11 +568,13 @@ function updateUI() {
   else         { s1.className='step done';   s2.className='step active'; }
 }
 
-// ---- run sim ----
+// ============================================================
+// Single Walk — run sim
+// ============================================================
 function runSim() {
   if (waypoints.length < 2 || simRunning) return;
   simRunning = true;
-  clearOverlays();
+  clearSingleWalkOverlays();
   setStatus('Synthesising walk and running recovery engine…', true);
   document.getElementById('results').innerHTML = '';
   document.getElementById('btn-run').disabled = true;
@@ -412,7 +585,7 @@ function runSim() {
   fetch('/api/simulate', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ area: areaInfo.id, path, mode }),
+    body:JSON.stringify({ area:areaInfo.id, path, mode }),
   })
   .then(r => r.json().then(d => ({ ok:r.ok, data:d })))
   .then(({ ok, data }) => {
@@ -427,20 +600,18 @@ function runSim() {
     setStatus('');
     document.getElementById('btn-run').disabled = false;
     showError('Network error: ' + err.message);
-
   });
 }
 
-// ---- render results ----
+// ============================================================
+// Single Walk — render results
+// ============================================================
 function renderResults(d) {
-  // Hide drawn path, show route line
   if (pathLine) { map.removeLayer(pathLine); pathLine = null; }
   if (d.route && d.route.length > 1) {
     routeLine = L.polyline(d.route.map(p=>[p[0],p[1]]), {color:'#3b82f6', weight:4, opacity:.85}).addTo(map);
     map.fitBounds(routeLine.getBounds(), {padding:[30,30]});
   }
-
-  // Pre-question best estimate (yellow circle)
   if (d.preQuestionBest) {
     preQMarker = L.circleMarker([d.preQuestionBest[0],d.preQuestionBest[1]], {
       radius:10, color:'#facc15', fillColor:'#facc15', fillOpacity:.5, weight:2
@@ -497,11 +668,10 @@ function renderResults(d) {
     </div>
   `;
 
-  // Initialise interactive Q&A
   qaCloud     = (d.hypotheses || [])
     .map((h, i) => ({
-      lat: h[0], lon: h[1], w: typeof h[2] === 'number' ? h[2] : 1.0,
-      qa: (d.questionAnswers && d.questionAnswers[i]) ? d.questionAnswers[i] : []
+      lat:h[0], lon:h[1], w:typeof h[2]==='number'?h[2]:1.0,
+      qa:(d.questionAnswers && d.questionAnswers[i]) ? d.questionAnswers[i] : []
     }))
     .filter(h => h.w > 1e-8);
   qaQuestions = d.questions || [];
@@ -512,7 +682,9 @@ function renderResults(d) {
   renderQA();
 }
 
-// ---- interactive Q&A ----
+// ============================================================
+// Single Walk — interactive Q&A
+// ============================================================
 function distM(lat1, lon1, lat2, lon2) {
   const dLat = (lat2 - lat1) * 111320;
   const dLon = (lon2 - lon1) * 111320 * Math.cos(lat1 * Math.PI / 180);
@@ -520,15 +692,13 @@ function distM(lat1, lon1, lat2, lon2) {
 }
 
 function qaLead() {
-  // Find the densest cluster: weighted centroid of hypotheses within 120m of the max-weight point
   if (qaCloud.length === 0) return null;
   let maxW = 0;
   qaCloud.forEach(h => { if (h.w > maxW) maxW = h.w; });
-  const thr = maxW * 0.05;
-  const core = qaCloud.filter(h => h.w >= thr);
+  const core = qaCloud.filter(h => h.w >= maxW * 0.05);
   if (core.length === 0) return null;
   let sw = 0, slat = 0, slon = 0;
-  core.forEach(h => { sw += h.w; slat += h.lat * h.w; slon += h.lon * h.w; });
+  core.forEach(h => { sw += h.w; slat += h.lat*h.w; slon += h.lon*h.w; });
   return sw > 0 ? {lat: slat/sw, lon: slon/sw} : null;
 }
 
@@ -552,33 +722,23 @@ function qaBestQuestion() {
     let yesW = 0;
     qaCloud.forEach(h => { if (h.qa[i]) yesW += h.w; });
     const ratio = yesW / total;
-    if (ratio < 0.02 || ratio > 0.98) continue; // question doesn't split — skip
-    const balance = Math.abs(ratio - 0.5);
-    // Prefer named road questions (they're most discriminating)
-    const score = balance - (qaQuestions[i].named ? 0.08 : 0);
+    if (ratio < 0.02 || ratio > 0.98) continue;
+    const score = Math.abs(ratio - 0.5) - (qaQuestions[i].named ? 0.08 : 0);
     if (score < bestScore) { bestScore = score; bestIdx = i; }
   }
   return bestIdx >= 0 ? bestIdx : null;
 }
 
 function applyQAAnswer(qIdx, answer) {
-  const isNamed = qaQuestions[qIdx].named;
-  const soft = isNamed ? 0.02 : 0.2;
-  qaCloud.forEach(h => {
-    if ((h.qa[qIdx] === true) !== answer) h.w *= soft;
-  });
+  const soft = qaQuestions[qIdx].named ? 0.02 : 0.2;
+  qaCloud.forEach(h => { if ((h.qa[qIdx] === true) !== answer) h.w *= soft; });
   qaCloud = qaCloud.filter(h => h.w > 1e-8);
   qaAsked.add(qIdx);
   qaLog.push({text: qaQuestions[qIdx].text, answer});
-
   renderHypoLayer();
-
   const conc = qaConcentration();
-  if (conc >= 0.80 || qaAsked.size >= 12) {
-    showLocated(conc);
-  } else {
-    renderQA();
-  }
+  if (conc >= 0.80 || qaAsked.size >= 12) showLocated(conc);
+  else renderQA();
 }
 
 function showLocated(conc) {
@@ -589,19 +749,12 @@ function showLocated(conc) {
       .bindPopup(`Engine thinks you're here<br>Confidence: ${Math.round(conc*100)}%`)
       .addTo(map);
   }
-
-  // Update location card
   const el = document.getElementById('loc-result');
-  if (el) {
-    el.innerHTML = `<span style="color:#22c55e;font-weight:700">LOCATED</span>
-      &nbsp;—&nbsp;${Math.round(conc*100)}% cloud confidence`;
-  }
+  if (el) el.innerHTML = `<span style="color:#22c55e;font-weight:700">LOCATED</span>&nbsp;—&nbsp;${Math.round(conc*100)}% cloud confidence`;
 
-  // Show Q&A log in the card
   const logHTML = qaLog.map(q =>
     `<div class="qa"><span class="qa-icon">${q.answer?'✅':'❌'}</span>
-     <span class="qa-text">${q.text}</span></div>`
-  ).join('');
+     <span class="qa-text">${q.text}</span></div>`).join('');
   const qb = document.getElementById('qa-body');
   if (qb) qb.innerHTML = `<div style="font-size:11px;color:#22c55e;margin-bottom:8px">Located after ${qaLog.length} question${qaLog.length===1?'':'s'}.</div>` + logHTML;
 }
@@ -610,23 +763,17 @@ function renderQA() {
   const qIdx = qaBestQuestion();
   const qb = document.getElementById('qa-body');
   if (!qb) return;
-
   const logHTML = qaLog.length > 0
     ? `<div class="qa-log"><div class="qa-prog">Already answered (${qaLog.length}):</div>` +
       qaLog.map(q => `<div class="qa"><span class="qa-icon">${q.answer?'✅':'❌'}</span>
         <span class="qa-text">${q.text}</span></div>`).join('') + `</div>`
     : '';
-
   if (qIdx === null) {
     const lead = qaLead();
-    if (lead) {
-      showLocated(qaConcentration());
-    } else {
-      qb.innerHTML = `<div style="font-size:11px;color:#f59e0b">Cloud too sparse — try a longer or curvier walk.</div>` + logHTML;
-    }
+    if (lead) showLocated(qaConcentration());
+    else qb.innerHTML = `<div style="font-size:11px;color:#f59e0b">Cloud too sparse — try a longer or curvier walk.</div>` + logHTML;
     return;
   }
-
   qb.innerHTML = `
     <div class="qa-active-q">${qaQuestions[qIdx].text}</div>
     <div class="qa-btn-row">
@@ -648,7 +795,417 @@ function renderHypoLayer() {
   }
 }
 
-// ---- mini charts ----
+// ============================================================
+// Single Walk — utils
+// ============================================================
+function clearSingleWalkOverlays() {
+  if (routeLine)  { map.removeLayer(routeLine);  routeLine = null; }
+  if (hypoLayer)  { map.removeLayer(hypoLayer);  hypoLayer = null; }
+  if (locMarker)  { map.removeLayer(locMarker);  locMarker = null; }
+  if (preQMarker) { map.removeLayer(preQMarker); preQMarker = null; }
+}
+
+function reset() {
+  simRunning = false;
+  clearSingleWalkOverlays();
+  if (pathLine) { map.removeLayer(pathLine); pathLine = null; }
+  wpMarkers.forEach(m => map.removeLayer(m));
+  wpMarkers = []; waypoints = [];
+  document.getElementById('results').innerHTML = '';
+  setStatus('');
+  updateUI();
+  if (areaInfo) map.setView(areaInfo.center, areaInfo.zoom);
+}
+
+// ============================================================
+// Region Benchmarker
+// ============================================================
+function onBenchModeChange() {
+  const off = document.getElementById('bench-mode').value === 'offtrail';
+  document.getElementById('road-controls').style.display = off ? 'none' : '';
+  document.getElementById('offtrail-controls').style.display = off ? '' : 'none';
+  document.getElementById('dist-label').textContent = off ? 'Walk Length' : 'Min Distance';
+  // off-trail needs more length to cross terrain; nudge the default up once
+  const md = document.getElementById('min-dist');
+  if (off && parseFloat(md.value) < 3) { md.value = 3; document.getElementById('min-dist-val').textContent = '3.0'; }
+}
+
+function runBenchmark() {
+  if (!areaInfo) { alert('Select an area first.'); return; }
+
+  const area          = document.getElementById('select-area').value;
+  const min_distance_m  = parseFloat(document.getElementById('min-dist').value) * 1000;
+  const mode          = document.getElementById('bench-mode').value;
+
+  clearBenchLayers();
+  document.getElementById('bench-results').innerHTML = '';
+  document.getElementById('btn-bench-run').disabled = true;
+
+  if (benchPollTimer) { clearTimeout(benchPollTimer); benchPollTimer = null; }
+
+  let body;
+  if (mode === 'offtrail') {
+    const placements_per_shape = parseInt(document.getElementById('placements').value);
+    const shapeSel = document.getElementById('offtrail-shape').value;
+    const shapes = shapeSel === 'all' ? null : [shapeSel];
+    const nShapes = shapes ? 1 : 5;
+    const zigzag_angle_deg = parseInt(document.getElementById('zigzag-angle').value);
+    setBenchStatus(`Submitting off-trail benchmark (${nShapes === 1 ? shapeSel : nShapes + ' shapes'} × ${placements_per_shape})…`, true, 0);
+    body = { area, mode, min_distance_m, placements_per_shape, zigzag_angle_deg };
+    if (shapes) body.shapes = shapes;
+  } else {
+    const num_starts      = parseInt(document.getElementById('num-starts').value);
+    const walks_per_start = parseInt(document.getElementById('walks-per-start').value);
+    const randomize_min_questions = document.getElementById('randomize-min-q').checked;
+    const walk_style = document.getElementById('walk-style').value;
+    const min_turns = parseInt(document.getElementById('min-turns').value);
+    setBenchStatus(`Submitting benchmark for ${num_starts * walks_per_start} walks…`, true, 0);
+    body = { area, num_starts, walks_per_start, min_distance_m, mode, randomize_min_questions, walk_style, min_turns };
+  }
+
+  fetch('/api/sim/benchmark', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body),
+  })
+  .then(r => r.json().then(d => ({ ok:r.ok, data:d })))
+  .then(({ ok, data }) => {
+    if (!ok) {
+      setBenchStatus('Error: ' + (data.detail || 'unknown'), false, 0);
+      document.getElementById('btn-bench-run').disabled = false;
+      return;
+    }
+    benchJobId = data.job_id;
+    pollBenchmark();
+  })
+  .catch(err => {
+    setBenchStatus('Network error: ' + err.message, false, 0);
+    document.getElementById('btn-bench-run').disabled = false;
+  });
+}
+
+function pollBenchmark() {
+  if (!benchJobId) return;
+  fetch(`/api/sim/benchmark/${benchJobId}`)
+    .then(r => r.json())
+    .then(job => {
+      setBenchStatus(job.message || '…', !job.done, job.frac || 0);
+      if (job.done) {
+        benchJobId = null;
+        document.getElementById('btn-bench-run').disabled = false;
+        document.getElementById('bench-status-bar').style.display = 'none';
+        if (job.error) {
+          document.getElementById('bench-results').innerHTML =
+            `<div class="error-box" style="margin:12px 16px;">⚠️ ${job.error}</div>`;
+        } else {
+          renderBenchResults(job.result);
+        }
+      } else {
+        benchPollTimer = setTimeout(pollBenchmark, 1000);
+      }
+    })
+    .catch(() => { benchPollTimer = setTimeout(pollBenchmark, 2000); });
+}
+
+function setBenchStatus(msg, spinning, frac) {
+  const bar = document.getElementById('bench-status-bar');
+  bar.style.display = msg ? '' : 'none';
+  document.getElementById('bench-status-text').textContent = msg;
+  document.getElementById('bench-progress-fill').style.width = `${Math.round((frac || 0) * 100)}%`;
+  const spinner = bar.querySelector('.spinner');
+  if (spinner) spinner.style.display = spinning ? '' : 'none';
+}
+
+function clearBenchLayers() {
+  benchPolylines.forEach(({ line, activeLocMarker, activeErrorLine }) => {
+    map.removeLayer(line);
+    if (activeLocMarker) map.removeLayer(activeLocMarker);
+    if (activeErrorLine) map.removeLayer(activeErrorLine);
+  });
+  benchPolylines = [];
+  highlightedIdx = -1;
+}
+
+function renderBenchResults(result) {
+  if (result.mode === 'offtrail') { renderOfftrailResults(result); return; }
+  // Draw polylines on map
+  clearBenchLayers();
+  result.walks.forEach((walk, i) => {
+    const success = walk.success;
+    const line = L.polyline(walk.coords, {
+      color: success ? '#22c55e' : '#e94560',
+      weight: 2.5, opacity: 0.65,
+    }).addTo(map);
+    benchPolylines.push({ line, walk, success, activeLocMarker: null, activeErrorLine: null });
+  });
+
+  if (benchPolylines.length > 0) {
+    const allLatLngs = benchPolylines.flatMap(({ line }) => line.getLatLngs());
+    if (allLatLngs.length > 0) map.fitBounds(L.latLngBounds(allLatLngs), { padding: [20, 20] });
+  }
+
+  // Dashboard
+  const score      = result.uniqueness_score;
+  const pct        = Math.round(score * 100);
+  const scoreColor = pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#e94560';
+
+  const fmt = v => v != null ? v.toFixed(1) : '—';
+  const fmtI = v => v != null ? Math.round(v) : '—';
+
+  const located = result.located_count;
+  const total   = result.total_walks;
+
+  document.getElementById('bench-results').innerHTML = `
+    <div class="bench-score">
+      <div class="bench-score-num" style="color:${scoreColor}">${pct}%</div>
+      <div class="bench-score-label">Uniqueness Score — ${located} / ${total} walks located</div>
+    </div>
+
+    <div class="bench-tiles">
+      <div class="bench-tile">
+        <div class="bench-tile-val">${fmt(result.avg_turns_to_localize)}</div>
+        <div class="bench-tile-lbl">Avg turns</div>
+      </div>
+      <div class="bench-tile">
+        <div class="bench-tile-val">${fmt(result.avg_questions_to_localize)}</div>
+        <div class="bench-tile-lbl">Avg questions</div>
+      </div>
+      <div class="bench-tile">
+        <div class="bench-tile-val">${fmtI(result.avg_error_m)} m</div>
+        <div class="bench-tile-lbl">Avg error</div>
+      </div>
+      <div class="bench-tile">
+        <div class="bench-tile-val" style="font-size:13px;">${located} / ${total}</div>
+        <div class="bench-tile-lbl">Located / total</div>
+      </div>
+    </div>
+
+    <div style="padding:2px 16px 4px;font-size:9px;color:#4a5270;font-style:italic;">
+      Averages over successful walks only
+    </div>
+
+    <div style="padding:0 16px 14px;">
+      <div style="font-size:10px;font-weight:700;color:#4a5270;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Error Distribution</div>
+      ${buildErrorHistogram(result.walks)}
+    </div>
+
+    <div style="padding:0 16px 14px;">
+      ${buildLocVsNotLocTable(result.walks)}
+    </div>
+
+    ${buildCoverageTable(result.walks)}
+
+    ${buildMinQTable(result.walks)}
+
+    <div class="bench-list-header">Walks <span style="font-size:9px;font-weight:400;color:#4a5270;text-transform:none;letter-spacing:0;">(hover to see engine's guess on map)</span></div>
+    <div id="bench-walk-list">
+      ${result.walks.map((w, i) => {
+        const hasLocPt = w.located_lat != null && w.located_lon != null;
+        const minQLabel = w.min_questions > 1 ? ` · <span style="color:#f97316">${w.min_questions}Q min</span>` : '';
+        const locLabel  = hasLocPt ? ` · <span style="color:#94a3b8">pin</span>` : '';
+        const rvLabel   = w.edge_revisit_ratio != null
+          ? ` · <span style="color:${w.edge_revisit_ratio >= 0.25 ? '#f97316' : '#64748b'}">rv ${Math.round(w.edge_revisit_ratio * 100)}%</span>` : '';
+        const bot = w.success
+          ? `err ${Math.round(w.located_error_m)} m · ${w.q_answered_count}Q · ${w.significant_turns} turns${rvLabel}${minQLabel}${locLabel}`
+          : (w.error ? w.error.slice(0, 60) : `${w.q_answered_count}Q · ${w.significant_turns} turns${rvLabel}${minQLabel}${locLabel}`);
+        return `
+        <div class="bench-walk-item" id="bench-walk-${i}"
+             onmouseenter="highlightWalk(${i})"
+             onmouseleave="unhighlightWalk()"
+             onclick="zoomToWalk(${i})">
+          <div class="bench-walk-dot" style="background:${w.success ? '#22c55e' : '#e94560'}"></div>
+          <div class="bench-walk-info">
+            <div class="bench-walk-top">
+              <span>#${i + 1} — ${Math.round(w.distance_m)} m</span>
+              <span style="color:${w.success ? '#22c55e' : '#e94560'}">${w.success ? 'located' : 'not located'}</span>
+            </div>
+            <div class="bench-walk-bot">${bot}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+const SHAPE_ICON = { triangle:'▲', square:'■', rectangle:'▬', circle:'●',
+                     figure_eight:'∞', zigzag:'⋁', star:'★' };
+
+function renderOfftrailResults(result) {
+  clearBenchLayers();
+  result.walks.forEach((walk) => {
+    const line = L.polyline(walk.coords, {
+      color: walk.success ? '#22c55e' : '#e94560', weight: 2.5, opacity: 0.6,
+    }).addTo(map);
+    benchPolylines.push({ line, walk, success: walk.success, activeLocMarker: null, activeErrorLine: null });
+  });
+  if (benchPolylines.length) {
+    const all = benchPolylines.flatMap(({ line }) => line.getLatLngs());
+    if (all.length) map.fitBounds(L.latLngBounds(all), { padding: [20, 20] });
+  }
+
+  const pct = Math.round(result.uniqueness_score * 100);
+  const scoreColor = pct >= 50 ? '#22c55e' : pct >= 25 ? '#f59e0b' : '#e94560';
+
+  // Shape leaderboard
+  const shapeRows = result.shapes.map(s => {
+    const rate = Math.round(s.rate * 100);
+    const c = rate >= 50 ? '#22c55e' : rate >= 25 ? '#f59e0b' : '#e94560';
+    return `<tr>
+      <td style="color:#dde1ec;font-size:11px;padding:3px 0;">${SHAPE_ICON[s.shape] || ''} ${s.shape}</td>
+      <td style="text-align:right;font-size:11px;font-weight:700;color:${c};padding:3px 8px;">${s.located}/${s.total}</td>
+      <td style="text-align:right;font-size:11px;color:#9aa3b8;padding:3px 8px;">${s.median_error_m != null ? Math.round(s.median_error_m) + ' m' : '—'}</td>
+      <td style="text-align:right;font-size:11px;color:#5a6880;padding:3px 0;">${Math.round(s.curvature_per_km)}</td>
+    </tr>`;
+  }).join('');
+
+  // What localizes? located vs not
+  const fc = result.feature_compare || {};
+  const FL = { early_gain_frac:'Early-third climb', mid_gain_frac:'Mid-third climb',
+               late_gain_frac:'Late-third climb', elev_roughness_m_per_km:'Roughness (m/km)',
+               curvature_per_km:'Curvature /km', elev_gain_m:'Elev gain (m)', elev_range_m:'Elev range (m)' };
+  const featRows = Object.keys(FL).filter(k => fc[k]).map(k => {
+    const isFrac = k.endsWith('frac');
+    const f = v => v == null ? '—' : (isFrac ? Math.round(v * 100) + '%' : Math.round(v));
+    return `<tr>
+      <td style="color:#5a6880;font-size:11px;padding:3px 0;">${FL[k]}</td>
+      <td style="text-align:right;font-size:11px;font-weight:600;color:#22c55e;padding:3px 6px;">${f(fc[k].located)}</td>
+      <td style="text-align:right;font-size:11px;font-weight:600;color:#e94560;padding:3px 0;">${f(fc[k].not)}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('bench-results').innerHTML = `
+    <div class="bench-score">
+      <div class="bench-score-num" style="color:${scoreColor}">${pct}%</div>
+      <div class="bench-score-label">Off-trail localized — ${result.located_count} / ${result.total_walks} shape walks · avg err ${result.avg_error_m != null ? Math.round(result.avg_error_m) + ' m' : '—'}</div>
+    </div>
+
+    <div style="padding:0 16px 14px;">
+      <div style="font-size:10px;font-weight:700;color:#4a5270;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Shape Leaderboard — what to walk if lost here</div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr>
+          <th style="text-align:left;font-size:9px;color:#4a5270;padding-bottom:4px;">Shape</th>
+          <th style="text-align:right;font-size:9px;color:#4a5270;padding-bottom:4px;padding-right:8px;">Located</th>
+          <th style="text-align:right;font-size:9px;color:#4a5270;padding-bottom:4px;padding-right:8px;">Med err</th>
+          <th style="text-align:right;font-size:9px;color:#4a5270;padding-bottom:4px;">Curv/km</th>
+        </tr></thead>
+        <tbody>${shapeRows}</tbody>
+      </table>
+    </div>
+
+    <div style="padding:0 16px 14px;">
+      <div style="font-size:10px;font-weight:700;color:#4a5270;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">What Localizes Here?</div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr>
+          <th style="text-align:left;font-size:9px;color:#4a5270;padding-bottom:4px;"></th>
+          <th style="text-align:right;font-size:9px;color:#22c55e;padding-bottom:4px;padding-right:6px;">Located</th>
+          <th style="text-align:right;font-size:9px;color:#e94560;padding-bottom:4px;">Not</th>
+        </tr></thead>
+        <tbody>${featRows}</tbody>
+      </table>
+    </div>
+
+    <div class="bench-list-header">Walks <span style="font-size:9px;font-weight:400;color:#4a5270;text-transform:none;letter-spacing:0;">(hover to see engine's guess)</span></div>
+    <div id="bench-walk-list">
+      ${result.walks.map((w, i) => {
+        const pin = (w.located_lat != null) ? ` · <span style="color:#94a3b8">pin</span>` : '';
+        return `
+        <div class="bench-walk-item" id="bench-walk-${i}"
+             onmouseenter="highlightWalk(${i})" onmouseleave="unhighlightWalk()" onclick="zoomToWalk(${i})">
+          <div class="bench-walk-dot" style="background:${w.success ? '#22c55e' : '#e94560'}"></div>
+          <div class="bench-walk-info">
+            <div class="bench-walk-top">
+              <span>${SHAPE_ICON[w.shape] || ''} ${w.shape}</span>
+              <span style="color:${w.success ? '#22c55e' : '#e94560'}">${w.success ? Math.round(w.located_error_m) + ' m' : 'not located'}</span>
+            </div>
+            <div class="bench-walk-bot">gain ${Math.round(w.elev_gain_m)} m · early ${Math.round(w.early_gain_frac*100)}% / late ${Math.round(w.late_gain_frac*100)}%${pin}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+function highlightWalk(i) {
+  if (i === highlightedIdx) return;
+
+  // Clear previous hover overlays
+  if (highlightedIdx >= 0 && benchPolylines[highlightedIdx]) {
+    const prev = benchPolylines[highlightedIdx];
+    if (prev.activeLocMarker) { map.removeLayer(prev.activeLocMarker); prev.activeLocMarker = null; }
+    if (prev.activeErrorLine) { map.removeLayer(prev.activeErrorLine); prev.activeErrorLine = null; }
+  }
+
+  highlightedIdx = i;
+  benchPolylines.forEach(({ line }, j) => {
+    if (j === i) { line.setStyle({ weight: 4.5, opacity: 1.0 }); line.bringToFront(); }
+    else          { line.setStyle({ opacity: 0.18 }); }
+  });
+
+  // Show engine's estimated location for this walk
+  const bp = benchPolylines[i];
+  if (!bp) return;
+  const w = bp.walk;
+  if (w.located_lat != null && w.located_lon != null) {
+    const locLL   = [w.located_lat, w.located_lon];
+    const trueLL  = w.coords[w.coords.length - 1];
+    const color   = w.success ? '#22c55e' : '#f97316';
+    const errTxt  = w.located_error_m != null ? `${Math.round(w.located_error_m)} m off` : 'no error';
+
+    bp.activeLocMarker = L.circleMarker(locLL, {
+      radius: 9, color: '#ffffff', weight: 2,
+      fillColor: color, fillOpacity: 0.9,
+    }).addTo(map)
+      .bindPopup(`<b>Engine guess</b><br>${w.located_lat.toFixed(5)}, ${w.located_lon.toFixed(5)}<br>${errTxt}`)
+      .openPopup();
+
+    // Dashed line from guess to true endpoint (only if meaningfully far)
+    if (w.located_error_m != null && w.located_error_m > 10) {
+      bp.activeErrorLine = L.polyline([locLL, trueLL], {
+        color: '#94a3b8', weight: 1.5, dashArray: '6 4', opacity: 0.75,
+      }).addTo(map);
+    }
+  }
+}
+
+function unhighlightWalk() {
+  if (highlightedIdx >= 0 && benchPolylines[highlightedIdx]) {
+    const bp = benchPolylines[highlightedIdx];
+    if (bp.activeLocMarker) { map.removeLayer(bp.activeLocMarker); bp.activeLocMarker = null; }
+    if (bp.activeErrorLine) { map.removeLayer(bp.activeErrorLine); bp.activeErrorLine = null; }
+  }
+  highlightedIdx = -1;
+  benchPolylines.forEach(({ line, success }) => {
+    line.setStyle({ weight: 2.5, opacity: 0.65 });
+  });
+}
+
+function zoomToWalk(i) {
+  const bp = benchPolylines[i];
+  if (bp) map.fitBounds(bp.line.getBounds(), { padding: [30, 30] });
+}
+
+// ============================================================
+// Shared utils
+// ============================================================
+function showError(data) {
+  let msg;
+  if (typeof data === 'string') msg = data;
+  else if (data && data.detail)
+    msg = Array.isArray(data.detail)
+      ? data.detail.map(e => (e.loc ? e.loc.join('.') + ': ' : '') + e.msg).join('<br>')
+      : String(data.detail);
+  else msg = JSON.stringify(data);
+  document.getElementById('results').innerHTML = `<div class="error-box">⚠️ ${msg}</div>`;
+}
+
+function setStatus(msg, spinning) {
+  const el = document.getElementById('status');
+  el.innerHTML = msg ? (spinning ? '<div class="spinner"></div>' : '') + `<span>${msg}</span>` : '';
+}
+
+// ============================================================
+// Mini charts (single walk)
+// ============================================================
 function buildElevChart(trueElev, noisyElev, distM) {
   const W = 300, H = 68, PAD = 4;
   const n = trueElev.length;
@@ -660,7 +1217,6 @@ function buildElevChart(trueElev, noisyElev, distM) {
   function yOf(v) { return PAD + (1 - (v - minV) / rng) * (H - 2*PAD); }
   const trueD  = trueElev.map( (v,i) => `${i?'L':'M'}${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ');
   const noisyD = noisyElev.map((v,i) => `${i?'L':'M'}${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ');
-  // Y axis tick
   const midV = ((minV + maxV)/2).toFixed(1);
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px">
     <line x1="${PAD}" y1="${PAD}" x2="${PAD}" y2="${H-PAD}" stroke="#1e2235" stroke-width="1"/>
@@ -689,50 +1245,239 @@ function buildHdgChart(headings) {
   </svg>`;
 }
 
+// ============================================================
+// Located vs Not-Located comparison table
+// ============================================================
+function buildLocVsNotLocTable(walks) {
+  const loc    = walks.filter(w => w.success);
+  const notLoc = walks.filter(w => !w.success);
+
+  const avg = (arr, key) => {
+    const vals = arr.map(w => w[key]).filter(v => v != null && isFinite(v));
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  };
+  const fmt1 = v => v != null ? v.toFixed(1) : '—';
+  const fmt0 = v => v != null ? Math.round(v) : '—';
+
+  const metrics = [
+    { label: 'Significant turns',     key: 'significant_turns',        fmt: fmt1 },
+    { label: 'Heading σ (°)',         key: 'heading_std_dev',           fmt: fmt1 },
+    { label: 'Total heading Δ (°)',   key: 'total_heading_change_deg',  fmt: fmt0 },
+    { label: 'Elevation gain (m)',    key: 'elev_gain_m',               fmt: fmt1 },
+    { label: 'Elevation range (m)',   key: 'elev_range_m',              fmt: fmt1 },
+    { label: 'Walk distance (m)',     key: 'distance_m',                fmt: fmt0 },
+  ];
+
+  // Check if new fields exist (older saved data won't have them)
+  const hasNewFields = walks.some(w => w.heading_std_dev != null);
+  const activeMetrics = hasNewFields ? metrics : metrics.slice(0, 1);
+
+  const rows = activeMetrics.map(m => {
+    const lv = avg(loc,    m.key);
+    const nv = avg(notLoc, m.key);
+    // Highlight which group is "better" for localization (higher turns/elevation = better)
+    const lWins = lv != null && nv != null && lv > nv;
+    const nWins = lv != null && nv != null && nv > lv;
+    return `<tr>
+      <td style="color:#5a6880;padding:3px 0;font-size:11px;">${m.label}</td>
+      <td style="text-align:right;font-weight:600;font-size:11px;color:${lWins?'#22c55e':'#dde1ec'};padding:3px 6px;">${m.fmt(lv)}</td>
+      <td style="text-align:right;font-weight:600;font-size:11px;color:${nWins?'#e94560':'#5a6880'};padding:3px 0;">${m.fmt(nv)}</td>
+    </tr>`;
+  }).join('');
+
+  if (!hasNewFields) {
+    return `<div style="font-size:10px;color:#4a5270;margin-top:4px;">
+      Run a new benchmark to see elevation &amp; heading breakdown (Swift was just updated).
+    </div>`;
+  }
+
+  return `<div style="font-size:10px;font-weight:700;color:#4a5270;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Located vs Not Located</div>
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th style="text-align:left;font-size:9px;color:#4a5270;font-weight:700;padding-bottom:4px;"></th>
+          <th style="text-align:right;font-size:9px;color:#22c55e;font-weight:700;padding-bottom:4px;padding-right:6px;">Located<br><span style="font-weight:400">(${loc.length})</span></th>
+          <th style="text-align:right;font-size:9px;color:#e94560;font-weight:700;padding-bottom:4px;">Not Loc<br><span style="font-weight:400">(${notLoc.length})</span></th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ============================================================
+// Walk-coverage breakdown (tests the "doubling back hurts" hypothesis)
+// ============================================================
+function buildCoverageTable(walks) {
+  const have = walks.filter(w => w.edge_revisit_ratio != null);
+  if (!have.length) return '';  // older data without coverage metrics
+
+  const loc    = have.filter(w => w.success);
+  const notLoc = have.filter(w => !w.success);
+  const avg = (arr, k) => {
+    const v = arr.map(w => w[k]).filter(x => x != null && isFinite(x));
+    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+  };
+  const pct1 = v => v != null ? Math.round(v * 100) + '%' : '—';
+  const f2   = v => v != null ? v.toFixed(2) : '—';
+
+  // For revisit, LOWER is better → green goes to whichever side is lower.
+  const er_l = avg(loc, 'edge_revisit_ratio'), er_n = avg(notLoc, 'edge_revisit_ratio');
+  const st_l = avg(loc, 'straightness'),       st_n = avg(notLoc, 'straightness');
+
+  // Success split by revisit level — the headline of the hypothesis.
+  const low  = have.filter(w => w.edge_revisit_ratio < 0.25);
+  const high = have.filter(w => w.edge_revisit_ratio >= 0.25);
+  const lowPct  = low.length  ? Math.round(100 * low.filter(w => w.success).length  / low.length)  : null;
+  const highPct = high.length ? Math.round(100 * high.filter(w => w.success).length / high.length) : null;
+  const pc = v => v == null ? '#5a6880' : v >= 70 ? '#22c55e' : v >= 40 ? '#f59e0b' : '#e94560';
+
+  return `<div style="padding:0 16px 14px;">
+    <div style="font-size:10px;font-weight:700;color:#4a5270;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Walk Coverage vs Success</div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
+      <thead><tr>
+        <th style="text-align:left;font-size:9px;color:#4a5270;padding-bottom:4px;"></th>
+        <th style="text-align:right;font-size:9px;color:#22c55e;padding-bottom:4px;padding-right:6px;">Located<br><span style="font-weight:400">(${loc.length})</span></th>
+        <th style="text-align:right;font-size:9px;color:#e94560;padding-bottom:4px;">Not Loc<br><span style="font-weight:400">(${notLoc.length})</span></th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td style="color:#5a6880;font-size:11px;padding:3px 0;">Edge revisit (lower=better)</td>
+          <td style="text-align:right;font-size:11px;font-weight:600;color:${er_l<=er_n?'#22c55e':'#dde1ec'};padding:3px 6px;">${pct1(er_l)}</td>
+          <td style="text-align:right;font-size:11px;font-weight:600;color:${er_n<er_l?'#e94560':'#5a6880'};padding:3px 0;">${pct1(er_n)}</td>
+        </tr>
+        <tr>
+          <td style="color:#5a6880;font-size:11px;padding:3px 0;">Straightness (higher=better)</td>
+          <td style="text-align:right;font-size:11px;font-weight:600;color:${st_l>=st_n?'#22c55e':'#dde1ec'};padding:3px 6px;">${f2(st_l)}</td>
+          <td style="text-align:right;font-size:11px;font-weight:600;color:${st_n>st_l?'#e94560':'#5a6880'};padding:3px 0;">${f2(st_n)}</td>
+        </tr>
+      </tbody>
+    </table>
+    <table style="width:100%;border-collapse:collapse;">
+      <tbody>
+        <tr>
+          <td style="color:#5a6880;font-size:11px;padding:3px 0;">Low revisit (&lt;25%)</td>
+          <td style="text-align:right;font-size:11px;color:#7a8499;padding:3px 8px;">${low.length} walks</td>
+          <td style="text-align:right;font-size:11px;font-weight:700;color:${pc(lowPct)};padding:3px 0;">${lowPct == null ? '—' : lowPct + '%'}</td>
+        </tr>
+        <tr>
+          <td style="color:#5a6880;font-size:11px;padding:3px 0;">High revisit (≥25%)</td>
+          <td style="text-align:right;font-size:11px;color:#7a8499;padding:3px 8px;">${high.length} walks</td>
+          <td style="text-align:right;font-size:11px;font-weight:700;color:${pc(highPct)};padding:3px 0;">${highPct == null ? '—' : highPct + '%'}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>`;
+}
+
+// ============================================================
+// Accuracy by min-questions breakdown
+// ============================================================
+function buildMinQTable(walks) {
+  const nValues = [...new Set(walks.map(w => w.min_questions || 1))].sort((a, b) => a - b);
+  if (nValues.length <= 1) return '';  // all same — not interesting
+
+  const rows = nValues.map(n => {
+    const group   = walks.filter(w => (w.min_questions || 1) === n);
+    const success = group.filter(w => w.success).length;
+    const pct     = Math.round((success / group.length) * 100);
+    const color   = pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#e94560';
+    return `<tr>
+      <td style="color:#5a6880;font-size:11px;padding:3px 0;">${n} question${n > 1 ? 's' : ''}</td>
+      <td style="text-align:right;font-size:11px;color:#7a8499;padding:3px 8px;">${group.length} walks</td>
+      <td style="text-align:right;font-size:11px;font-weight:700;color:${color};padding:3px 0;">${pct}%</td>
+    </tr>`;
+  }).join('');
+
+  return `<div style="padding:0 16px 14px;">
+    <div style="font-size:10px;font-weight:700;color:#4a5270;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Accuracy by Min Questions Required</div>
+    <table style="width:100%;border-collapse:collapse;">
+      <thead><tr>
+        <th style="text-align:left;font-size:9px;color:#4a5270;padding-bottom:4px;">Min Q</th>
+        <th style="text-align:right;font-size:9px;color:#4a5270;padding-bottom:4px;padding-right:8px;">Walks</th>
+        <th style="text-align:right;font-size:9px;color:#4a5270;padding-bottom:4px;">Success</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+// ============================================================
+// Error distribution histogram (benchmark)
+// ============================================================
+function buildErrorHistogram(walks) {
+  // 6 equal-width buckets for located walks + 1 "not located" bar
+  const EDGES = [0, 20, 40, 60, 80, 100, 120];
+  const counts = new Array(EDGES.length - 1).fill(0);
+  let notLocated = 0;
+
+  walks.forEach(w => {
+    if (!w.success || w.located_error_m == null) { notLocated++; return; }
+    const e = w.located_error_m;
+    for (let i = 0; i < EDGES.length - 1; i++) {
+      if (e >= EDGES[i] && e < EDGES[i + 1]) { counts[i]++; break; }
+    }
+  });
+
+  const W = 276, H = 90;
+  const PL = 26, PR = 6, PT = 10, PB = 22;
+  const chartW = W - PL - PR;
+  const chartH = H - PT - PB;
+  const nBars  = counts.length + 1;  // located buckets + not-located
+  const gap    = 3;
+  const barW   = (chartW / nBars) - gap;
+  const maxVal = Math.max(...counts, notLocated, 1);
+
+  const barX = i => PL + i * (chartW / nBars) + gap / 2;
+  const barY = v => PT + chartH - (v / maxVal) * chartH;
+
+  let svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px">`;
+
+  // Axes
+  svg += `<line x1="${PL}" y1="${PT}" x2="${PL}" y2="${PT+chartH}" stroke="#1e2235" stroke-width="1"/>`;
+  svg += `<line x1="${PL}" y1="${PT+chartH}" x2="${W-PR}" y2="${PT+chartH}" stroke="#1e2235" stroke-width="1"/>`;
+
+  // Y tick at max
+  svg += `<text x="${PL-3}" y="${PT+4}" text-anchor="end" fill="#4a5270" font-size="7">${maxVal}</text>`;
+  // Y tick at mid
+  const mid = Math.round(maxVal / 2);
+  svg += `<line x1="${PL-2}" y1="${barY(mid).toFixed(1)}" x2="${PL}" y2="${barY(mid).toFixed(1)}" stroke="#1e2235" stroke-width="1"/>`;
+  svg += `<text x="${PL-3}" y="${(barY(mid)+3).toFixed(1)}" text-anchor="end" fill="#4a5270" font-size="7">${mid}</text>`;
+
+  // Located buckets (green)
+  counts.forEach((c, i) => {
+    const x = barX(i).toFixed(1);
+    const h = c > 0 ? ((c / maxVal) * chartH).toFixed(1) : '0';
+    const y = barY(c).toFixed(1);
+    svg += `<rect x="${x}" y="${y}" width="${barW.toFixed(1)}" height="${h}" fill="#22c55e" opacity="0.75" rx="1"/>`;
+    if (c > 0) svg += `<text x="${(barX(i) + barW/2).toFixed(1)}" y="${(barY(c)-2).toFixed(1)}" text-anchor="middle" fill="#8892a4" font-size="7">${c}</text>`;
+    // X label: left edge of bucket
+    svg += `<text x="${(barX(i) + barW/2).toFixed(1)}" y="${(H-6).toFixed(1)}" text-anchor="middle" fill="#4a5270" font-size="7">${EDGES[i]}</text>`;
+  });
+  // Rightmost X label (120m)
+  svg += `<text x="${(barX(counts.length-1) + barW).toFixed(1)}" y="${(H-6).toFixed(1)}" text-anchor="middle" fill="#4a5270" font-size="7">120m</text>`;
+
+  // Not-located bar (red)
+  const nlI = counts.length;
+  const nlX = barX(nlI).toFixed(1);
+  const nlH = notLocated > 0 ? ((notLocated / maxVal) * chartH).toFixed(1) : '0';
+  const nlY = barY(notLocated).toFixed(1);
+  svg += `<rect x="${nlX}" y="${nlY}" width="${barW.toFixed(1)}" height="${nlH}" fill="#e94560" opacity="0.75" rx="1"/>`;
+  if (notLocated > 0) svg += `<text x="${(barX(nlI) + barW/2).toFixed(1)}" y="${(barY(notLocated)-2).toFixed(1)}" text-anchor="middle" fill="#8892a4" font-size="7">${notLocated}</text>`;
+  svg += `<text x="${(barX(nlI) + barW/2).toFixed(1)}" y="${(H-6).toFixed(1)}" text-anchor="middle" fill="#e94560" font-size="7">N/L</text>`;
+
+  svg += `</svg>`;
+  svg += `<div style="display:flex;gap:12px;font-size:9px;color:#4a5270;margin-top:3px;">
+    <span><span style="color:#22c55e">■</span> located (error in metres)</span>
+    <span><span style="color:#e94560">■</span> not located</span>
+  </div>`;
+  return svg;
+}
+
 function turnQuality(n) {
   if (n === 0) return '— straight walk, hard to localise';
   if (n === 1) return '— helps a little';
   if (n === 2) return '— decent';
   return '— good shape for localisation';
-}
-
-// ---- utils ----
-function showError(data) {
-  let msg;
-  if (typeof data === 'string') {
-    msg = data;
-  } else if (data && data.detail) {
-    msg = Array.isArray(data.detail)
-      ? data.detail.map(e => (e.loc ? e.loc.join('.') + ': ' : '') + e.msg).join('<br>')
-      : String(data.detail);
-  } else {
-    msg = JSON.stringify(data);
-  }
-  document.getElementById('results').innerHTML = `<div class="error-box">⚠️ ${msg}</div>`;
-}
-
-function setStatus(msg, spinning) {
-  const el = document.getElementById('status');
-  el.innerHTML = msg ? (spinning ? '<div class="spinner"></div>' : '') + `<span>${msg}</span>` : '';
-}
-
-function clearOverlays() {
-  if (routeLine)  { map.removeLayer(routeLine);  routeLine = null; }
-  if (hypoLayer)  { map.removeLayer(hypoLayer);  hypoLayer = null; }
-  if (locMarker)  { map.removeLayer(locMarker);  locMarker = null; }
-  if (preQMarker) { map.removeLayer(preQMarker); preQMarker = null; }
-}
-
-function reset() {
-  simRunning = false;
-  clearOverlays();
-  if (pathLine) { map.removeLayer(pathLine); pathLine = null; }
-  wpMarkers.forEach(m => map.removeLayer(m));
-  wpMarkers = []; waypoints = [];
-  document.getElementById('results').innerHTML = '';
-  setStatus('');
-  updateUI();
-  if (areaInfo) map.setView(areaInfo.center, areaInfo.zoom);
 }
 </script>
 </body>

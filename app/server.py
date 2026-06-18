@@ -28,6 +28,8 @@ maps.AREAS_DIR.mkdir(parents=True, exist_ok=True)
 
 # In-memory download jobs: job_id -> progress dict.
 JOBS: dict[str, dict] = {}
+# Separate dict for benchmark jobs to keep routing clean.
+BENCHMARK_JOBS: dict[str, dict] = {}
 HOME_FILE = maps.DATA_DIR / "home.json"
 
 
@@ -261,8 +263,17 @@ class DownloadRequest(BaseModel):
 def api_sim_download(req: DownloadRequest) -> dict:
     area_id = req.name.lower().replace(" ", "_")
     area_id = "".join(c for c in area_id if c.isalnum() or c == "_")
-    
-    sim.AREAS[area_id] = {
+    if not area_id:
+        raise HTTPException(400, "Area name must contain letters or digits.")
+
+    # Validate the rectangle before we touch anything.
+    if not (req.south < req.north and req.west < req.east):
+        raise HTTPException(422, (
+            "Invalid rectangle: need south < north and west < east "
+            f"(got S={req.south}, W={req.west}, N={req.north}, E={req.east})."
+        ))
+
+    info = {
         "south": req.south,
         "west": req.west,
         "north": req.north,
@@ -271,27 +282,60 @@ def api_sim_download(req: DownloadRequest) -> dict:
         "zoom": 14,
         "name": req.name,
     }
+
+    # Build the road graph FRESH so a re-download at a new spot can never leave a
+    # stale graph behind. A *fresh* download is always bbox-correct, so any graph
+    # we get matches the rectangle. Road count is best-effort, NOT a gate:
+    # off-trail/backcountry areas legitimately have few or zero drivable roads —
+    # their usable data is the DEM (fetched below), which covers any land.
+    prev = sim.AREAS.get(area_id)
+    sim.AREAS[area_id] = info  # resolve_area_graph reads bbox from here
+    try:
+        graph = routing.resolve_area_graph(area_id, force_refresh=True)
+        n_nodes = graph.number_of_nodes()
+    except Exception as exc:
+        # No drivable roads at all (common in deep wilderness) — fine for off-trail.
+        print(f"[sim] no road graph for {area_id!r} ({exc}); off-trail only")
+        n_nodes = 0
+
     sim.save_areas()
-    
-    # Trigger Swift simulator with a dummy walk to download & cache the OSM roads and DEM tiles.
+
+    # Trigger Swift to download & cache OSM roads and DEM tiles (keyed by bbox).
     center_lat = (req.south + req.north) / 2
     center_lon = (req.west + req.east) / 2
     dummy_path = [
         [center_lat - 0.001, center_lon - 0.001],
-        [center_lat + 0.001, center_lon + 0.001]
+        [center_lat + 0.001, center_lon + 0.001],
     ]
-    
     try:
         sim.run_sim(sim.SimRequest(area=area_id, path=dummy_path, mode="road"))
     except Exception:
         pass
-        
-    return {"status": "ok", "area_id": area_id, "name": req.name, "area": sim.AREAS[area_id]}
+
+    return {"status": "ok", "area_id": area_id, "name": req.name,
+            "area": sim.AREAS[area_id], "road_nodes": n_nodes}
 
 
 @app.post("/api/simulate")
 def api_simulate(req: sim.SimRequest) -> dict:
     return sim.run_sim(req)
+
+
+@app.post("/api/sim/benchmark")
+def api_sim_benchmark(req: sim.BenchmarkRequest) -> dict:
+    job_id = uuid.uuid4().hex[:12]
+    job: dict = {"message": "starting…", "frac": 0.0, "done": False, "error": None, "result": None}
+    BENCHMARK_JOBS[job_id] = job
+    threading.Thread(target=sim.run_benchmark, args=(job, req), daemon=True).start()
+    return {"job_id": job_id}
+
+
+@app.get("/api/sim/benchmark/{job_id}")
+def api_sim_benchmark_status(job_id: str) -> dict:
+    job = BENCHMARK_JOBS.get(job_id)
+    if job is None:
+        raise HTTPException(404, "unknown benchmark job")
+    return job
 
 
 # Mount static last so it doesn't shadow API routes.

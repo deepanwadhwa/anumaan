@@ -29,6 +29,7 @@ func parsePathJSON(_ s: String) -> [(Double, Double)]? {
 
 let args = Array(CommandLine.arguments.dropFirst())
 let jsonMode = args.contains("--json")
+let benchmark = args.contains("--benchmark")
 let positional = args.filter { !$0.hasPrefix("--") }
 
 if !positional.isEmpty {
@@ -58,7 +59,13 @@ if !positional.isEmpty {
     let fromLL = pathLL == nil && coordArgs.count >= 1 ? parseLatLon(coordArgs[0]) : nil
     let toLL   = pathLL == nil && coordArgs.count >= 2 ? parseLatLon(coordArgs[1]) : nil
 
-    do { try await RealArea.run(bbox, name: areaName, fromLL: fromLL, toLL: toLL, pathLL: pathLL, mode: mode, json: jsonMode) }
+    var minQuestions = 1
+    if let qi = args.firstIndex(of: "--min-questions"), qi + 1 < args.count,
+       let n = Int(args[qi + 1]) {
+        minQuestions = max(1, min(n, 16))
+    }
+
+    do { try await RealArea.run(bbox, name: areaName, fromLL: fromLL, toLL: toLL, pathLL: pathLL, mode: mode, json: jsonMode, benchmark: benchmark, minQuestions: minQuestions) }
     catch { FileHandle.standardError.write(Data("AnumaanSim error: \(error)\n".utf8)) }
 } else {
     runSyntheticDemo()

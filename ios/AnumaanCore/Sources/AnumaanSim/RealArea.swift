@@ -225,9 +225,11 @@ enum RealArea {
                     fromLL: (Double, Double)? = nil, toLL: (Double, Double)? = nil,
                     pathLL: [(Double, Double)]? = nil,
                     mode: String = "road",
-                    json: Bool = false) async throws {
+                    json: Bool = false,
+                    benchmark: Bool = false,
+                    minQuestions: Int = 1) async throws {
         let stderr = FileHandle.standardError
-        func log(_ s: String) { if !json { print(s) }
+        func log(_ s: String) { if !json && !benchmark { print(s) }
             else { stderr.write(Data((s + "\n").utf8)) } }
 
         log("=== AnumaanSim — REAL area: \(name) ===")
@@ -269,6 +271,19 @@ enum RealArea {
         if let cached = try? Data(contentsOf: ovURL), !cached.isEmpty {
             log("Roads: using cached Overpass (\(cached.count / 1024) KB).")
             graph = try Overpass.buildGraph(from: cached)
+        } else if mode == "offtrail" {
+            // Off-trail only uses roads to mask candidates near pavement — they're
+            // optional out in the backcountry. A flaky or empty Overpass response
+            // must not kill the run; fall back to an empty road graph (no mask).
+            do {
+                log("Roads: downloading from Overpass (optional for off-trail)…")
+                let data = try await fetchOverpass(b)
+                try? data.write(to: ovURL)
+                graph = try Overpass.buildGraph(from: data)
+            } catch {
+                log("Roads: Overpass unavailable (\(error)); continuing with no road mask.")
+                graph = RoadGraph()
+            }
         } else {
             log("Roads: downloading from Overpass…")
             let data = try await fetchOverpass(b)
@@ -457,7 +472,72 @@ enum RealArea {
             dem: dem, landmarks: built.landmarks, namedRoads: built.namedRoads, pois: [])
         let session = RecoverySession(map: iMap)
 
-        if json {
+        if benchmark {
+            // Batch mode: run oracle Q&A and emit one compact JSON line for the Python benchmarker.
+            // minQuestions: don't accept a location until the engine has answered at least N questions
+            // across one or more rounds, testing whether more confirmation improves accuracy.
+            var locatedPoint: GeoPoint? = nil
+            var locatedConc = 0.0
+            var asked = 0
+            var outcome = session.startRound(cloud: cloud, natureMode: mode == "offtrail", heading: walkHeadings.last)
+            outerBenchLoop: while asked < 16 {
+                switch outcome {
+                case .ask(let q):
+                    asked += 1
+                    let yes = q.predicate(trueEnd)
+                    outcome = session.answer(yes, cloud: cloud)
+                    if case .located(let p, _, let conc) = outcome {
+                        locatedPoint = p; locatedConc = conc
+                        if asked >= minQuestions { break outerBenchLoop }
+                        // Need more questions — restart a new round from same position
+                        outcome = session.startRound(cloud: cloud, natureMode: mode == "offtrail", heading: walkHeadings.last)
+                    }
+                    if case .needWalk = outcome { break outerBenchLoop }
+                case .located(let p, _, let conc):
+                    locatedPoint = p; locatedConc = conc
+                    if asked >= minQuestions { break outerBenchLoop }
+                    outcome = session.startRound(cloud: cloud, natureMode: mode == "offtrail", heading: walkHeadings.last)
+                case .needWalk:
+                    break outerBenchLoop
+                }
+            }
+            let located = locatedPoint != nil
+            let locErrStr = locatedPoint.map { String(format: "%.1f", $0.distance(to: trueEnd)) } ?? "null"
+            let walkDistM = Int(totalLen.rounded())
+
+            // Elevation metrics from the noisy cumulative profile
+            let elevGain = zip(walkCumElev, walkCumElev.dropFirst())
+                .reduce(0.0) { acc, pair in pair.1 > pair.0 ? acc + (pair.1 - pair.0) : acc }
+            let elevMin = walkCumElev.min() ?? 0.0
+            let elevMax = walkCumElev.max() ?? 0.0
+
+            // Convert located point to lat/lon for the UI
+            let locLL = locatedPoint.map { dem.latLon(x: $0.x, y: $0.y) }
+            let locLatStr = locLL.map { String(format: "%.6f", $0.lat) } ?? "null"
+            let locLonStr = locLL.map { String(format: "%.6f", $0.lon) } ?? "null"
+
+            // True endpoint lat/lon so the UI can draw a line from engine guess → truth
+            let trueLL = dem.latLon(x: trueEnd.x, y: trueEnd.y)
+
+            print("{\"located\":\(located ? "true" : "false")"
+                + ",\"locatedErrorM\":\(locErrStr)"
+                + ",\"locatedConc\":\(String(format: "%.4f", locatedConc))"
+                + ",\"locatedLat\":\(locLatStr)"
+                + ",\"locatedLon\":\(locLonStr)"
+                + ",\"trueEndLat\":\(String(format: "%.6f", trueLL.lat))"
+                + ",\"trueEndLon\":\(String(format: "%.6f", trueLL.lon))"
+                + ",\"qAnsweredCount\":\(asked)"
+                + ",\"significantTurns\":\(hStats.significantTurns)"
+                + ",\"headingStdDev\":\(String(format: "%.2f", hStats.stdDev))"
+                + ",\"totalHeadingChangeDeg\":\(String(format: "%.1f", hStats.totalChangeDeg))"
+                + ",\"elevGainM\":\(String(format: "%.1f", elevGain))"
+                + ",\"elevRangeM\":\(String(format: "%.1f", elevMax - elevMin))"
+                + ",\"walkSteps\":\(walkHeadings.count)"
+                + ",\"walkDistanceM\":\(walkDistM)"
+                + ",\"preQuestionErrorM\":\(String(format: "%.1f", preQErrorM))"
+                + ",\"preQuestionConc\":\(String(format: "%.4f", preQConc))"
+                + ",\"minQuestionsUsed\":\(minQuestions)}")
+        } else if json {
             // Interactive mode: pre-evaluate the full question bank at every hypothesis
             // so the browser can run the Q&A loop without extra server round-trips.
             let allQs = session.buildFullQuestionBank(cloud: cloud)
