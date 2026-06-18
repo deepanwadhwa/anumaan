@@ -1,16 +1,40 @@
 # Anumaan
 
-Anumaan is a navigation system that works without GPS. The name (Hindi: अनुमान) means "to deduce" or "to reckon roughly", which is exactly what it does. Instead of reading a GPS fix, it figures out where you are by **dead reckoning**: it keeps a running estimate of how far you have moved and in which direction, using only the phone's motion sensors (accelerometer, gyroscope, magnetometer).
+Anumaan (Hindi: अनुमान) means "to estimate", "to deduce", "to reckon roughly". This is a working prototype exploring how far you can get with navigation without GPS.
 
-On roads, it snaps that estimate to the nearest road node every time you stop, so small errors do not pile up. Off roads, where there is nothing to snap to, it recovers your position by matching the shape of the terrain around you against an offline elevation map. That terrain matching is called **TERCOM** (Terrain Contour Matching).
+## The problem we are trying to solve
 
-Everything runs offline. The only step that needs the internet is downloading the map for an area before you go.
+GPS-free navigation sounds hard, but the core requirements are actually pretty narrow. To route someone from point A to point B without GPS, you need three things:
+
+1. **An offline map** with routing built in, so you can run A* or any shortest-path algorithm without a network connection.
+2. **A starting position** on that map, so you know where to begin.
+3. **A speed estimate**, so you can predict when you will reach the next known landmark.
+
+If you have all three, you can dead-reckon your way through a road network with reasonable accuracy: the app knows where you started, how fast you are moving, and which roads you are on, so it can estimate when you will arrive at the next intersection.
+
+The hard one is speed. On a phone with no GPS, there is no direct speed measurement. The clean solution would be an OBD dongle plugged into the car's data port, or a smart car that broadcasts its speed over Bluetooth — but I had neither of those. So I did the next best thing: **assume you are driving at the speed limit**, which the map already knows for every road segment.
+
+That assumption is good enough to get the timing right within a few seconds on a typical city block. And the app does not just trust that assumption blindly. Every time you approach a mapped intersection, the app asks: *"Have you reached this intersection yet?"* Your yes or no corrects the position estimate. If your phone's barometer and motion sensors also detect the terrain change expected at that point — an elevation step, a stop — the app can confirm the snap automatically without asking.
+
+That question-and-answer loop is the core of the road navigation engine. Each answered question narrows the set of places you could be, and after a few intersections the position converges to a tight cluster.
+
+### The wilderness problem
+
+Off-road is harder because the road constraint disappears. In a city you can only be *on the road*, which collapses the candidate set dramatically. In a national park or backcountry you could be anywhere.
+
+The approach for wilderness is **terrain contour matching**: as you walk, the rise and fall of the ground traces out an elevation profile. If you have a cached offline elevation map of the area, you can compare that profile against every possible location on the map and find where it fits best.
+
+This is the same principle behind the guidance system in a Tomahawk cruise missile — TERCOM (Terrain Contour Matching). The missile's altimeter measures the terrain below, and the onboard map records the pre-planned corridor; when the two match, the missile knows exactly where it is. We are doing a simpler version of the same thing with a phone barometer and open elevation data.
+
+**What makes it hard** is that big terrain repeats itself. A 3 km walk at 1,400 m elevation on a south-facing slope in the Smokies might look almost identical to a different 3 km walk at the same elevation on a different south-facing slope 8 km away. The engine either nails it or lands on one of these look-alikes — and there is not much in between. The benchmarks below show that split clearly.
+
+---
 
 ## What is in this repo
 
 There are two implementations of the same idea.
 
-- **iOS app (`ios/`)** is the real product. It is a native Swift app that runs entirely on the phone, with no server and no network once an area is downloaded. It has three screens: **Navigate** (follow a route by dead reckoning), **Track** (record a walk), and **Lost** (recover your position from the terrain with TERCOM). See [`ios/README.md`](ios/README.md) to build and run it.
+- **iOS app (`ios/`)** is a native Swift app with three screens: **Navigate** (follow a route by dead reckoning), **Track** (record a walk), and **Lost** (recover your position from the terrain with TERCOM). We built this so we could actually take a phone outside and test whether the dead-reckoning and terrain-matching ideas work in the real world. See [`ios/README.md`](ios/README.md) to build and run it.
 - **Web prototype** is a small web app you run on a computer. Your phone streams its sensor data to it over the local network, and the browser shows you moving along a real route with no GPS.
 - **Map Simulator** is served at `/sim`. It lets you draw walk paths on a map, synthesize walk telemetry (noisy barometer and heading), and run the Swift recovery engine (`AnumaanSim` CLI) to visualize the particle filter and Q&A engine converging onto your true position.
 
@@ -48,6 +72,48 @@ The simulator lets you run and visualize the Anumaan recovery engine entirely in
 3. **Walk Modes**: Supports **Paved Roads** (snapping particle filter) and **Off-Trail** (terrain-contour TERCOM matching with road nodes masked out).
 4. **Draw and Run**: Click the map to draw your simulated walk path. Once you have at least 2 waypoints, click **Run Sim**.
 5. **Q&A Localization Engine**: The simulator calls the Swift `AnumaanSim` CLI, runs the particle filter recovery, and returns the list of hypotheses and questions. You can answer the interactive Q&A questions (Yes/No) in the sidebar to see the hypothesis cloud (orange dots) filter down and converge onto the true location (pink `?` marker).
+
+### Region benchmark
+
+The simulator includes a **Region Benchmarker** that runs hundreds of synthetic walks across a downloaded area and scores how often the engine recovers the correct position. Green paths on the map are walks that were successfully located; red paths are misses. The sidebar shows the aggregate accuracy, median error, and per-walk statistics.
+
+#### Road benchmarks
+
+The road engine performs well on dense road networks. These four runs used a "strict trail" walk style — paths that never reuse a street segment — with a minimum walk distance of 3 km and randomized Q&A (1–4 questions per walk).
+
+| Area | Accuracy | Notes |
+|---|---|---|
+| Clemson, SC | **90%** | Mixed suburban/rural grid |
+| Buffalo, NY | **89%** | Dense urban grid |
+| Bangalore, India | **81%** | Complex junction-heavy layout |
+| Kyiv, Ukraine | **91%** | Wide arterials, river peninsula |
+
+The numbers are not 100% because some walks are ambiguous even with full map knowledge — two streets of the same length and orientation are genuinely hard to tell apart from motion sensors alone.
+
+![Clemson road benchmark — 90% accuracy](docs/Clemson.png)
+*Clemson, SC — 90% of 197 strict-trail walks located to within 13 m median error.*
+
+![Buffalo road benchmark — 89% accuracy](docs/Buffalo.png)
+*Buffalo, NY — 89% accuracy on a dense urban grid. Red dots show the small cluster of missed walks near the southern boundary.*
+
+![Bangalore road benchmark — 81% accuracy](docs/Bangalore.png)
+*Bangalore — 81%. The lower score reflects the higher density and complexity of the junction network, which produces more ambiguous walk profiles.*
+
+![Kyiv road benchmark — 91% accuracy](docs/Kyiv.png)
+*Kyiv — 91%. The river peninsula and wide arterials produce very distinct walk profiles, making localization easier.*
+
+#### Off-trail wilderness benchmark
+
+The off-trail benchmark works differently. Instead of random road walks, the tool generates walks shaped like **triangles, squares, rectangles, circles, and zigzags** across real terrain at dozens of random placements. The engine then tries to match each shape against the cached elevation map and find where it is.
+
+The Great Smoky Mountains result below shows 54% accuracy. That number looks low next to the road results, but the comparison is not fair — the off-trail search covers roughly 89 km² with no prior on where the walk started. The road engine has the road network to pin it down; the off-trail engine has only the elevation profile.
+
+![Great Smoky Mountains off-trail benchmark — 54%](docs/GreatSmoky.png)
+*Great Smoky Mountains — 54% of shape walks located. Green outlines are successful localisations; red outlines are misses. The shape leaderboard (right panel) shows which walk shapes performed best at this specific terrain. Self-crossing shapes (the star and figure-eight) were universally the worst.*
+
+**What the 54% actually means:** when the engine gets it right, it is often within tens of meters on a 3–5 km walk through mountainous terrain, using only a phone barometer. When it gets it wrong, the miss usually lands at a different location at the same elevation with a similar up-and-down profile — not a random guess, but a genuine terrain look-alike. This is a known and fundamental limitation of TERCOM when the search area is large and the terrain is repetitive. See the "Where this is going" section for how we plan to address it.
+
+---
 
 ## Offline basemap (Protomaps and PMTiles)
 
@@ -142,13 +208,15 @@ tests/             # engine, SDE, and bridge tests
 
 ## Where this is going (future directions)
 
-Anumaan already recovers your position two ways: by **snapping to roads** when you are on them, and by **matching the terrain** when you are not. The road case works very well. The off-road case is the hard one, and it is where most of the upcoming work is aimed. Here is the plan, and what we have learned so far.
+Anumaan already recovers your position two ways: by **snapping to roads** when you are on them, and by **matching the terrain** when you are not. The road case works well enough to be useful. The off-road case is the hard one, and it is where most of the upcoming work is aimed. Here is the plan, and what we have learned so far.
 
 ### The wilderness "Lost" mode
 
 The goal is easy to state: someone is lost in the backcountry — a national park, a state forest — with no GPS, no signal, and often no marked trail under their feet. All they have is the phone's barometer, which gives the **change** in elevation but not the absolute height, and its compass. Can we still tell them where they are?
 
-The idea is **terrain matching**. As you walk, the rise and fall of the ground traces out an elevation profile. If you have an offline elevation map of the area, you can slide that profile over the map and find the one spot where it fits. Where it fits is where you are.
+The idea is **terrain matching** — and strictly for demonstration purposes, this is the same technology used by Tomahawk cruise missiles (TERCOM: Terrain Contour Matching). A Tomahawk's altimeter measures the terrain below and matches it against a stored map of the planned corridor; when the two match, the missile knows exactly where it is. We are doing the same thing with a phone barometer and open elevation data from AWS. This prototype exists to explore how far that idea gets you with consumer hardware and open maps.
+
+As you walk, the rise and fall of the ground traces out an elevation profile. If you have an offline elevation map of the area, you can slide that profile over the map and find the one spot where it fits. Where it fits is where you are.
 
 To study this we built a **"simulate before you go" benchmark**, in the Map Simulator. You download a park once (this also caches its elevation tiles), choose **Off-trail**, and the tool runs the experiment for you. It lays out several walking **shapes** — a triangle, a square, a rectangle, a circle, and a zigzag — across the real terrain at many random spots, runs each one through the recovery engine, and reports two things: which shape gets you **found** most often, and how **accurately**. The best shape is not the same everywhere; it depends on the shape of the land. So the point is that you can run this for *your* park before you go, and learn what to walk if you get lost there.
 
