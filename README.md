@@ -18,7 +18,7 @@ To route someone from point A to point B without GPS, you need three things:
 2. **A starting position** on that map, so you know where to begin. This is easy.
 3. **Your position on the map** as you are moving. This is hard.
 
-Number 3 is hard because that is exactly what GPS provides: your phone pings the satellites constantly and keeps updating your position on the map, and also computes your moving speed from that. Position P1 at time T1 and position P2 at time T2 — straightforward math.
+Number 3 is hard because that is exactly what GPS provides: your phone listens the satellites constantly and keeps updating your position on the map, and also computes your moving speed from that. Position P1 at time T1 and position P2 at time T2 — straightforward math.
 
 Without GPS we need a good proxy for number 3. I am using OpenStreetMap (OSM), which comes with points of interest, street names, intersections, traffic lights, speed limits, and a ton of other data, all storable on the phone.
 
