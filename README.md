@@ -28,9 +28,9 @@ How does "I am lost" work without GPS? The app also downloads Digital Elevation 
 
 ## Road navigation already has a simpler answer
 
-It is worth being honest: if you are lost on a road, you have an easier option than any of the above. Look at the nearest street sign, type it into an offline map, and it tells you exactly where you are.
+If you are lost on a road, you have an easier option than any of the above. Look at the nearest street sign, type it into an offline map, and it tells you exactly where you are.
 
-This repository is not trying to compete with that. The road work was a first step, a way to build and validate the underlying localization engine before pointing it at the genuinely hard problem. The hard problem is what happens when there is no street sign, no road, and nothing around you but terrain.
+Localization on road networks was the first step, a way to build and validate the underlying TERCOM, POI verification system before pointing it at the harder problem. The hard problem is what happens when there is no street sign, no road, and nothing around you but terrain ; aka wilderness.
 
 ## What makes the wilderness case hard
 
@@ -42,7 +42,7 @@ What makes it especially hard is that big terrain repeats itself. A 3 km walk at
 
 ## What is in this repo
 
-- **iOS app (`ios/`)** is a native Swift app with three screens: **Navigate** (follow a route by dead reckoning), **Track** (record a walk), and **Lost** (recover your position from the terrain with TERCOM). We built this so we could take a phone outside and test whether the dead-reckoning and terrain-matching ideas hold up in the real world. See [`ios/README.md`](ios/README.md) to build and run it.
+- **iOS app (`ios/`)** is a native Swift app with three screens: **Navigate** (follow a route by dead reckoning), **Track** (record a walk, work in progress), and **Lost** (recover your position from the terrain with TERCOM). I had claude built this so I could take my phone outside and test whether the dead-reckoning and terrain-matching ideas hold up in the real world. See [`ios/README.md`](ios/README.md) to build and run it.
 - **Map Simulator** (`/sim`) lets you draw walk paths on a map, synthesize walk telemetry (noisy barometer and heading), and run the Swift recovery engine (`AnumaanSim` CLI) to visualize the particle filter and Q&A engine converging onto your true position. It also includes a **Region Benchmarker** that runs hundreds of synthetic walks across a downloaded area and scores how often the engine recovers the correct position.
 
 ## Run the simulator
