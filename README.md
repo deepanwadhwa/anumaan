@@ -26,6 +26,15 @@ How does "I am lost" work without GPS? The app also downloads Digital Elevation 
 
 **There is a lot that is still pending and I am still working on it.**
 
+## Testing without hiking everywhere: AnumaanSim
+
+The **"I am lost" / TERCOM mode is, for now, tested entirely in simulation.** I did take the phone outside and test it for real, but going out and walking a fresh path every time I want to try an idea does not scale. So I built **AnumaanSim**, a simulator that runs the *exact same* recovery engine over any area in the world without leaving the desk. The phone tests proved the idea works on real hardware; the simulator is how I expand the reach and iterate quickly.
+
+The simulator has two modes:
+
+- **Draw your own path.** Click a walk onto the map and watch the engine try to recover where you are, answering its Yes/No questions as the hypothesis cloud narrows down.
+- **Run a benchmark.** Generate hundreds of random walks across a downloaded area and score how often the engine finds you, and how accurately. This is what produced the numbers below.
+
 ## Road navigation already has a simpler answer
 
 If you are lost on a road, you have an easier option than any of the above. Look at the nearest street sign, type it into an offline map, and it tells you exactly where you are.
@@ -42,8 +51,8 @@ What makes it especially hard is that big terrain repeats itself. A 3 km walk at
 
 ## What is in this repo
 
-- **iOS app (`ios/`)** is a native Swift app with three screens: **Navigate** (follow a route by dead reckoning), **Track** (record a walk, work in progress), and **Lost** (recover your position from the terrain with TERCOM). I had claude built this so I could take my phone outside and test whether the dead-reckoning and terrain-matching ideas hold up in the real world. See [`ios/README.md`](ios/README.md) to build and run it.
-- **Map Simulator** (`/sim`) lets you draw walk paths on a map, synthesize walk telemetry (noisy barometer and heading), and run the Swift recovery engine (`AnumaanSim` CLI) to visualize the particle filter and Q&A engine converging onto your true position. It also includes a **Region Benchmarker** that runs hundreds of synthetic walks across a downloaded area and scores how often the engine recovers the correct position.
+- **iOS app (`ios/`)** is a native Swift app with three screens: **Navigate** (follow a route by dead reckoning), **Track** (record a walk, work in progress), and **Lost** (recover your position from the terrain with TERCOM). I had claude build this so I could take my phone outside and test whether the dead-reckoning and terrain-matching ideas hold up in the real world. The **Lost / TERCOM recovery is still validated in simulation, not yet fully wired on-device.** See [`ios/README.md`](ios/README.md) to build and run it.
+- **Map Simulator** (`/sim`) is where the "I am lost" mode is actually exercised today. It runs the *same* Swift recovery engine (`AnumaanSim` CLI) over any downloaded area, in two modes: **draw your own path** on the map and watch the particle filter and Q&A engine converge onto your true position, or use the **Region Benchmarker** to run hundreds of random walks and score how often the engine recovers the correct position.
 
 ## Run the simulator
 
