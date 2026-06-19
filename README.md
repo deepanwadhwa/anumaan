@@ -8,7 +8,7 @@ Anumaan (Hindi: अनुमान) means "to estimate", or "to reckon roughly".
 
 "Scenario: internet is down, lower earth satellites have been shot down and GPS is jammed; how would you navigate from point A to point B?"
 
-This is an imaginary scenario and it will probably never happen. I am just trying to figure out this problem given these constraints.
+This is an imaginary scenario and it will probably never happen, right?
 
 ## The problem
 
