@@ -1,10 +1,15 @@
 """Read the elevation grid the Swift engine already downloaded, in Python.
 
 The AnumaanSim binary caches a stitched Terrarium DEM per area as a tiny binary
-blob (`~/Library/Caches/AnumaanSim/<area>/dem_<bounds>.bin`). Re-using that file
-means the off-trail walk generator samples the *exact same* elevation data the
-recovery engine fingerprints against — no extra download, no PNG decoding, and
-no risk of the two sides disagreeing about the terrain.
+blob under the OS cache directory (`AnumaanSim/<area>/dem_<bounds>.bin`).
+Re-using that file means the off-trail walk generator samples the *exact same*
+elevation data the recovery engine fingerprints against — no extra download, no
+PNG decoding, and no risk of the two sides disagreeing about the terrain.
+
+Swift writes it via `FileManager.cachesDirectory`, which resolves to
+`~/Library/Caches` on macOS, `$XDG_CACHE_HOME` or `~/.cache` on Linux, and
+`%LOCALAPPDATA%` on Windows. `_caches_root()` below mirrors that so the two
+sides agree on the path regardless of platform.
 
 Binary layout (little-endian), mirroring RealArea.writeDEM:
     int32   z, px0, py0, width, height        (web-mercator zoom + raster origin)
@@ -17,13 +22,32 @@ lat/lon -> pixel is the standard slippy-map projection (TileMath in DEMTiles.swi
 from __future__ import annotations
 
 import math
+import os
 import random
 import struct
+import sys
 from pathlib import Path
 
 import numpy as np
 
-CACHE_ROOT = Path.home() / "Library" / "Caches" / "AnumaanSim"
+
+def _caches_root() -> Path:
+    """The OS cache directory, matching Swift's `FileManager.cachesDirectory`.
+
+    macOS:   ~/Library/Caches
+    Windows: %LOCALAPPDATA%  (fallback ~/AppData/Local)
+    Linux:   $XDG_CACHE_HOME (fallback ~/.cache)
+    """
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Caches"
+    if sys.platform == "win32":
+        local = os.environ.get("LOCALAPPDATA")
+        return Path(local) if local else Path.home() / "AppData" / "Local"
+    xdg = os.environ.get("XDG_CACHE_HOME")
+    return Path(xdg) if xdg else Path.home() / ".cache"
+
+
+CACHE_ROOT = _caches_root() / "AnumaanSim"
 
 _METERS_PER_DEG_LAT = 111_320.0
 
