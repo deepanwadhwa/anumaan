@@ -30,9 +30,13 @@ How does "I am lost" work without GPS? The app also downloads Digital Elevation 
 
 **There is a lot that is still pending and I am still working on it.**
 
-## Testing without hiking everywhere: AnumaanSim
+## Real-world testing, then a simulator to scale
 
-The **"I am lost" / TERCOM mode is, for now, tested entirely in simulation.** I did take the phone outside and test it for real, but going out and walking a fresh path every time I want to try an idea does not scale. So I built **AnumaanSim**, a simulator that runs the *exact same* recovery engine over any area in the world without leaving the desk. The phone tests proved the idea works on real hardware; the simulator is how I expand the reach and iterate quickly.
+I tested this in the field. I walked real paths outside with the phone and ran the "I am lost" recovery on the sensor data it actually recorded. That is the real test, and it is how I know the approach works on real hardware.
+
+But walking a fresh path every time I want to try a change does not scale. So I **also** built **AnumaanSim**, a simulator that runs the *same* recovery engine over any area in the world from my desk, no hiking required. It is not a replacement for the field tests; it is a way to try many more ideas, on many more places, far faster.
+
+One caveat about the simulator, stated plainly: it feeds the engine **idealized** input. It assumes clean elevation changes and clean heading, as if the barometer and compass were perfect. Real phone sensors are not. The barometer drifts with weather and temperature, and the compass wanders near metal, cars, and buildings. So the simulator's accuracy numbers are an **optimistic ceiling**; real sensor noise pulls them down in the field. The simulator is for comparing ideas quickly and cheaply, not for predicting exact real-world accuracy.
 
 The simulator has two modes:
 
@@ -77,6 +81,8 @@ Open http://127.0.0.1:8080/sim in a browser.
 5. **Run a benchmark.** Switch to the **Region Benchmarker** tab to run hundreds of walks automatically and see aggregate accuracy, median error, and per-walk statistics on the map.
 
 ## Benchmark results
+
+All numbers below come from **AnumaanSim**, so they assume the idealized sensors described above (clean elevation and heading). Read them as a ceiling for comparing approaches against each other, not as field accuracy.
 
 ### Road localization
 
