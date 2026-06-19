@@ -51,8 +51,8 @@ What makes it especially hard is that big terrain repeats itself. A 3 km walk at
 
 ## What is in this repo
 
-- **iOS app (`ios/`)** is a native Swift app with three screens: **Navigate** (follow a route by dead reckoning), **Track** (record a walk, work in progress), and **Lost** (recover your position from the terrain with TERCOM). I had claude build this so I could take my phone outside and test whether the dead-reckoning and terrain-matching ideas hold up in the real world. The **Lost / TERCOM recovery is still validated in simulation, not yet fully wired on-device.** See [`ios/README.md`](ios/README.md) to build and run it.
-- **Map Simulator** (`/sim`) is where the "I am lost" mode is actually exercised today. It runs the *same* Swift recovery engine (`AnumaanSim` CLI) over any downloaded area, in two modes: **draw your own path** on the map and watch the particle filter and Q&A engine converge onto your true position, or use the **Region Benchmarker** to run hundreds of random walks and score how often the engine recovers the correct position.
+- **iOS app (`ios/`)** is a native Swift app with three screens: **Navigate** (follow a route by dead reckoning), **Track** (record a walk, work in progress), and **Lost** (recover your position from the terrain with TERCOM). I had claude build this so I could take my phone outside and test whether the dead-reckoning and terrain-matching ideas hold up in the real world, and the Lost mode has been tested on-device. Day-to-day iteration now happens in the simulator so I do not have to walk a fresh path for every experiment. See [`ios/README.md`](ios/README.md) to build and run it.
+- **Map Simulator** (`/sim`) is where the "I am lost" mode is iterated on today. It runs the *same* Swift recovery engine (`AnumaanSim` CLI) over any downloaded area, in two modes: **draw your own path** on the map and watch the particle filter and Q&A engine converge onto your true position, or use the **Region Benchmarker** to run hundreds of random walks and score how often the engine recovers the correct position.
 
 ## Run the simulator
 
