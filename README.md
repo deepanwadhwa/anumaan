@@ -1,5 +1,9 @@
 # Anumaan
 
+<p align="center">
+  <img src="docs/anumaan-icon.png" width="128" alt="Anumaan app icon — topographic contour rings with a you-are-here dot">
+</p>
+
 Anumaan (Hindi: अनुमान) means "to estimate", or "to reckon roughly". The main goal of this project is to figure out and implement an app which can help with navigation without GPS or Internet. GPS and Internet coverage has only gotten better and I think it will penetrate even more remote parts of the world with more satellites in the orbit. The reason for building this is to satisfy my own curiosity and also answer the below hypothetical:
 
 "Scenario: internet is down, lower earth satellites have been shot down and GPS is jammed; how would you navigate from point A to point B?"
