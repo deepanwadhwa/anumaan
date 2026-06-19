@@ -1,36 +1,42 @@
 # Anumaan
 
-Anumaan (Hindi: अनुमान) means "to estimate", "to deduce", "to reckon roughly". This is a working prototype exploring how far you can get with navigation without GPS.
+Anumaan (Hindi: अनुमान) means "to estimate", or "to reckon roughly". The main goal of this project is to figure out and implement an app which can help with navigation without GPS or Internet. GPS and Internet coverage has only gotten better and I think it will penetrate even more remote parts of the world with more satellites in the orbit. The reason for building this is to satisfy my own curiosity and also answer the below hypothetical:
 
-## The problem we are trying to solve
+"Scenario: internet is down, lower earth satellites have been shot down and GPS is jammed; how would you navigate from point A to point B?"
 
-GPS-free navigation sounds hard, but the core requirements are actually pretty narrow. To route someone from point A to point B without GPS, you need three things:
+This is an imaginary scenario and it will probably never happen. I am just trying to figure out this problem given these constraints.
 
-1. **An offline map** with routing built in, so you can run A* or any shortest-path algorithm without a network connection.
-2. **A starting position** on that map, so you know where to begin.
-3. **A speed estimate**, so you can predict when you will reach the next known landmark.
+## The problem
 
-If you have all three, you can dead-reckon your way through a road network with reasonable accuracy: the app knows where you started, how fast you are moving, and which roads you are on, so it can estimate when you will arrive at the next intersection.
+To route someone from point A to point B without GPS, you need three things:
 
-The hard one is speed. On a phone with no GPS, there is no direct speed measurement. The clean solution would be an OBD dongle plugged into the car's data port, or a smart car that broadcasts its speed over Bluetooth. I had neither of those. So I did the next best thing: **assume you are driving at the speed limit**, which the map already knows for every road segment.
+1. **An offline map** with routing built in, so you can run A* or any shortest-path algorithm without a network connection. This is easy.
+2. **A starting position** on that map, so you know where to begin. This is easy.
+3. **Your position on the map** as you are moving. This is hard.
 
-That assumption is good enough to get the timing right within a few seconds on a typical city block. And the app does not just trust that assumption blindly. Every time you approach a mapped intersection, the app asks: *"Have you reached this intersection yet?"* Your yes or no corrects the position estimate. If your phone's barometer and motion sensors also detect the terrain change expected at that point, the app can confirm the snap automatically without asking.
+Number 3 is hard because that is exactly what GPS provides: your phone pings the satellites constantly and keeps updating your position on the map, and also computes your moving speed from that. Position P1 at time T1 and position P2 at time T2 — straightforward math.
 
-That question-and-answer loop is the core of the road navigation engine. Each answered question narrows the set of places you could be, and after a few intersections the position converges to a tight cluster.
+Without GPS we need a good proxy. I am using OpenStreetMap (OSM), which comes with points of interest, street names, intersections, traffic lights, speed limits, and a ton of other data, all storable on the phone.
 
-### But road navigation already has a simpler answer
+If the system can verify points of interest along the way, it can locate itself on the map. The app runs A* (similar to what Google Maps does), loads the points of interest on the route, and asks the human: "have you reached this next POI?" Yes or no. Each answer corrects the position estimate.
 
-It is worth being honest about this: if you are lost on a road, you have an easier option than any of the above. Look at the nearest street sign, type it into an offline map, and it tells you exactly where you are. Done.
+This works but feels hacky. What if you go the wrong way? Google Maps detects that automatically with GPS and reroutes. So the app also has an "I am lost" feature. If you do not see the POI the app is asking about, you might be off route.
+
+How does "I am lost" work without GPS? The app also downloads Digital Elevation Model (DEM) data alongside OSM. DEM gives you the elevation of every point on the map (resolution varies: NED for some areas, SRTM for others). When "I am lost" is pressed, the app starts collecting sensor data from the phone: compass direction and barometer readings. Direction comes from the compass; barometer values are a good proxy for elevation change. As you move, you are literally drawing a curve on the earth's surface with two properties: heading (degrees) and elevation change. Walk far enough, and you have drawn a curve long enough to ask the map: "is there a curve like this, with this elevation profile, somewhere in this area?" The map then runs the Terrain Contour Matching algorithm (TERCOM), the same class of algorithm used by Tomahawk missiles, and once it thinks it has found you it loads the nearest POIs and asks: "do you see this intersection?", "are you near this ridge?" Once confirmed, you are back on the map.
+
+**There is a lot that is still pending and I am still working on it.**
+
+## Road navigation already has a simpler answer
+
+It is worth being honest: if you are lost on a road, you have an easier option than any of the above. Look at the nearest street sign, type it into an offline map, and it tells you exactly where you are.
 
 This repository is not trying to compete with that. The road work was a first step, a way to build and validate the underlying localization engine before pointing it at the genuinely hard problem. The hard problem is what happens when there is no street sign, no road, and nothing around you but terrain.
 
-### The wilderness problem
+## What makes the wilderness case hard
 
-Off-road navigation is where TERCOM (Terrain Contour Matching) becomes the only real tool available. As you walk, the rise and fall of the ground traces out an elevation profile. If you have a cached offline elevation map of the area, you can compare that profile against every possible location and find where it fits best.
+Off-road is harder because the road constraint disappears. On a road you can only be on the road, which collapses the candidate set to a thin set of lines. In a national park or backcountry you could be anywhere.
 
-This is the same principle behind the guidance system in a Tomahawk cruise missile. The missile's altimeter measures the terrain below, and the onboard map records the pre-planned corridor; when the two align, the missile knows exactly where it is. We are doing a simpler version of the same thing with a phone barometer and open elevation data. This repository is, strictly speaking, a demonstration of how far that idea gets you with consumer hardware and open maps.
-
-What makes it hard is that big terrain repeats itself. A 3 km walk at 1,400 m elevation on a south-facing slope in the Smokies might look almost identical to a different 3 km walk at the same elevation on a different south-facing slope 8 km away. The engine either nails it or lands on one of these look-alikes, with little in between. The benchmarks below show that split clearly.
+What makes it especially hard is that big terrain repeats itself. A 3 km walk at 1,400 m elevation on a south-facing slope in the Smokies might look almost identical to a different 3 km walk at the same elevation on a different south-facing slope 8 km away. The engine either nails it or lands on one of these look-alikes, with little in between. The benchmarks below show that split clearly.
 
 ---
 
@@ -88,7 +94,7 @@ The numbers are not 100% because some walks are genuinely ambiguous: two streets
 
 The off-trail benchmark generates walks shaped like triangles, squares, rectangles, circles, and zigzags across real terrain at dozens of random placements. The engine tries to match each shape against the cached elevation map.
 
-The Great Smoky Mountains result below shows 54%. The off-trail search covers roughly 89 km² with no prior on where the walk started, which is why this is hard: the engine has to search the whole park. When it gets it right, it is often within tens of meters on a 3 to 5 km walk using only a phone barometer. When it gets it wrong, the miss lands at a different location at the same elevation with a similar up-and-down profile. This is not a random guess but a genuine terrain look-alike, and it is a known fundamental limitation of TERCOM on repetitive terrain. See the "Where this is going" section for how we plan to address it.
+The Great Smoky Mountains result below shows 54%. The off-trail search covers roughly 89 km² with no prior on where the walk started. When the engine gets it right, it is often within tens of meters on a 3 to 5 km walk using only a phone barometer. When it gets it wrong, the miss lands at a different location at the same elevation with a similar up-and-down profile: a genuine terrain look-alike, not a random guess. This is a known fundamental limitation of TERCOM on repetitive terrain. See "Where this is going" below for how we plan to address it.
 
 ![Great Smoky Mountains off-trail benchmark — 54%](docs/GreatSmoky.png)
 *Great Smoky Mountains. 54% of shape walks located. Green outlines are successful localisations; red outlines are misses. The shape leaderboard (right panel) shows which walk shapes performed best on this specific terrain. Self-crossing shapes (star and figure-eight) were universally the worst.*
@@ -116,9 +122,7 @@ The road case works well enough to be useful. The off-road case is the hard one,
 
 ### The wilderness "Lost" mode
 
-The goal is easy to state: someone is lost in the backcountry with no GPS, no signal, and often no marked trail under their feet. All they have is the phone's barometer, which gives the change in elevation but not the absolute height, and its compass. Can we still tell them where they are?
-
-To study this we built a "simulate before you go" benchmark in the Map Simulator. You download a park (which caches its elevation tiles), choose Off-trail, and the tool runs the experiment for you. It lays out several walking shapes across the real terrain at many random spots, runs each one through the recovery engine, and reports which shape gets you found most often and how accurately. The best shape is not the same everywhere; it depends on the shape of the land. The idea is that you run this for your park before you go, and you learn what to walk if you get lost there.
+To study what works in the wilderness, we built a "simulate before you go" benchmark in the Map Simulator. You download a park (which caches its elevation tiles), choose Off-trail, and the tool runs the experiment for you. It lays out several walking shapes across the real terrain at many random spots, runs each one through the recovery engine, and reports which shape gets you found most often and how accurately. The best shape is not the same everywhere; it depends on the shape of the land. The idea is that you run this for your park before you go, and learn what to walk if you get lost there.
 
 What we have learned from running it on the Great Smokies and Yosemite:
 
@@ -137,6 +141,11 @@ The real fix is shrinking the set of places the person could be. Three planned a
 Parks are laced with mapped hiking trails and OpenStreetMap already has them. The plan is to treat the trail network the same way we treat roads: download it with the area and snap to it.
 
 If a lost hiker stumbles onto any trail, even without knowing which one, we can pin them to the trail graph and recover their position the same strong way the road engine works. And even off the trails, the nearby trail network shrinks the search. Trail maps are the bridge between the road case that already works and the open-terrain case that is still hard.
+
+### Next directions
+
+- Put this on a robot with a camera: identifying POIs visually should be doable, removing the human Q&A loop entirely.
+- Explore deep sea terrain and build a simulation of the same TERCOM approach underwater.
 
 ## Notes
 
